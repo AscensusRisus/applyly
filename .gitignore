@@ -1,7 +1,5 @@
-﻿# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
+﻿# Dependencies
+/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,39 +8,18 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# Testing and build output
+/coverage/
 /.next/
 /.vinext/
 /out/
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-!.env.example
-
-# vercel
-.vercel
-
-# typescript
-next-env.d.ts
 /dist/
-/.wrangler/
 /outputs/
 /work/
-# Applyly local runtime and database state
+
+# Local runtime, caches, and database state
 /.wrangler/
+/.npm-cache/
 *.db
 *.db-shm
 *.db-wal
@@ -50,11 +27,25 @@ next-env.d.ts
 *.sqlite3
 /.dev-*.log
 
-# Local/private Codex workspace metadata
+# Environment and secrets
+.env*
+!.env.example
+*.pem
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Local/private workspace metadata
 /.codex/
 /.agents/
 
-# Personal Sites hosting configuration (use .openai/hosting.example.json)
-/.openai/hosting.json
-!/.openai/hosting.example.json
+# Personal Sites hosting configuration
+/.openai/
 
+# Misc
+.DS_Store
+.vercel/
+next-env.d.ts
