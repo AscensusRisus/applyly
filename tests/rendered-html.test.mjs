@@ -59,6 +59,8 @@ test("the UI supports navigation, insights, settings, and optimistic records wit
   assert.match(page, /Welcome back/);
   assert.match(page, /hydrated/);
   assert.match(page, /todayIso/);
+  assert.match(page, /getFullYear/);
+  assert.doesNotMatch(page, /setForm\(current => current\.appliedDate/);
   assert.match(page, />Today</);
   assert.match(page, /Interview to Offer/);
   assert.match(page, /stacked-bar/);
