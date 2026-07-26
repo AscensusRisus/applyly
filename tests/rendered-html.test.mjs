@@ -53,9 +53,11 @@ test("the UI supports navigation, insights, settings, and optimistic records wit
   assert.match(page, /modal-backdrop/);
   assert.match(page, /CONTACT EMAIL/);
   assert.match(page, /Conversion funnel/);
+  assert.match(page, /Welcome back/);
+  assert.match(page, /hydrated/);
   assert.match(page, /todayIso/);
   assert.match(page, />Today</);
-  assert.match(page, /Interview → Offer/);
+  assert.match(page, /Interview to Offer/);
   assert.match(page, /stacked-bar/);
   assert.match(page, /Total applications/);
   assert.match(page, /legend-swatch/);
@@ -68,5 +70,4 @@ test("status history migration is present", async () => {
   assert.match(migration, /application_status_history/);
   assert.match(migration, /changed_at/);
 });
-
 
