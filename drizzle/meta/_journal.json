@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784842453420,
+      "tag": "0000_thankful_virginia_dare",
+      "breakpoints": true
+    }
+  ]
+}
