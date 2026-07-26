@@ -143,5 +143,5 @@ public/    Static assets
 
 ## License
 
-Add the license that matches how you plan to distribute Applyly.
+Applyly is released under the [MIT License](LICENSE).
 
