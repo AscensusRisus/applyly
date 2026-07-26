@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -27,6 +27,7 @@ test("application API uses one storage layer for reads, writes, and status chang
   assert.match(storage, /CREATE TABLE IF NOT EXISTS applications/);
   assert.match(storage, /INSERT INTO applications/);
   assert.match(storage, /UPDATE applications SET status/);
+  assert.match(storage, /rollbackApplicationStatus/);
   assert.match(storage, /DELETE FROM applications/);
   assert.match(storage, /application_status_history/);
   assert.match(storage, /contact_email/);
@@ -34,6 +35,8 @@ test("application API uses one storage layer for reads, writes, and status chang
   assert.match(route, /listApplications/);
   assert.match(route, /createApplication/);
   assert.match(statusRoute, /updateApplicationStatus/);
+  assert.match(statusRoute, /rollbackApplicationStatus/);
+  assert.match(statusRoute, /undoHistoryId/);
   assert.match(statusRoute, /export async function DELETE/);
   assert.match(statusRoute, /getApplicationHistory/);
   const analyticsRoute = await read("app/api/applications/analytics/route.ts");

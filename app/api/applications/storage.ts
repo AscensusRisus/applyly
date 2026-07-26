@@ -1,4 +1,4 @@
-﻿export const applicationsMigration = `CREATE TABLE IF NOT EXISTS applications (
+export const applicationsMigration = `CREATE TABLE IF NOT EXISTS applications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   company TEXT NOT NULL,
   role TEXT NOT NULL,
@@ -81,6 +81,17 @@ export async function getApplicationHistory(db: D1Database, id: string) {
   return result.results;
 }
 
+export async function rollbackApplicationStatus(db: D1Database, applicationId: string, historyId: number) {
+  await ensureApplicationsTable(db);
+  const entries = await db.prepare("SELECT id, status FROM application_status_history WHERE application_id = ? ORDER BY changed_at ASC, id ASC").bind(applicationId).all<{ id:number; status:string }>();
+  const index = entries.results.findIndex(entry => entry.id === historyId);
+  if (index <= 0) return { meta: { changes: 0 }, reason: "The application creation entry cannot be undone" };
+  const previous = entries.results[index - 1];
+  const toDelete = entries.results.slice(index).map(entry => db.prepare("DELETE FROM application_status_history WHERE id = ? AND application_id = ?").bind(entry.id, applicationId));
+  const update = db.prepare("UPDATE applications SET status = ? WHERE id = ?").bind(previous.status, applicationId);
+  const results = await db.batch([update, ...toDelete]);
+  return { meta: { changes: results[0].meta.changes }, status: previous.status };
+}
 export async function getApplicationAnalytics(db: D1Database) {
   await ensureApplicationsTable(db);
   const [applications, history] = await Promise.all([
