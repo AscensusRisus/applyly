@@ -1,4 +1,4 @@
-﻿# Applyly
+# Applyly
 
 Applyly is a local-first job application tracker for keeping applications, follow-ups, status changes, and pipeline performance in one place.
 
@@ -11,13 +11,14 @@ It is built with React, vinext, Cloudflare Workers, Cloudflare D1/SQLite, and Dr
 - Status flow including `Applied`, `Phone screen`, `Assessment`, `Interview`, `Offer`, and `Rejected`
 - Persistent status history for every application
 - Timeline view for individual application status changes
+- Readable, editable application details including notes, source, contact, next steps, and links
 - Insights dashboard with:
   - total applications
   - color-coded status distribution
   - assessment and interview reach rates
   - interview-to-offer conversion
   - interview-to-rejected conversion
-  - monthly application activity
+  - all-time and year-specific application activity
 - Settings for display name, default location, and data management
 - Local D1/SQLite persistence across development-server restarts
 
@@ -98,6 +99,7 @@ The analytics API is available at:
 
 ```text
 GET /api/applications/analytics
+GET /api/applications/analytics?year=2026
 ```
 
 Application history is available at:

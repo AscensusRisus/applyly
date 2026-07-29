@@ -29,6 +29,11 @@ export type ApplicationPayload = {
   contactEmail?: string; source?: string; nextStep?: string; nextActionDate?: string;
 };
 
+export function isValidAppliedDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T12:00:00`);
+  return !Number.isNaN(parsed.valueOf()) && `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}` === value;
+}
 export async function ensureApplicationsTable(db: D1Database) {
   await db.prepare(applicationsMigration).run();
   await db.prepare(statusHistoryMigration).run();
@@ -47,7 +52,8 @@ export async function createApplication(db: D1Database, payload: ApplicationPayl
   const role = payload.role?.trim() ?? "";
   const location = payload.location?.trim() || "Remote";
   const status = payload.status?.trim() || "Applied";
-  const appliedDate = payload.appliedDate || new Date().toISOString().slice(0, 10);
+  const appliedDate = payload.appliedDate?.trim() ?? "";
+  if (!isValidAppliedDate(appliedDate)) throw new Error("Applied date must be a valid YYYY-MM-DD value");
   const contactEmail = payload.contactEmail?.trim() || null;
   const source = payload.source?.trim() || null;
   const nextStep = payload.nextStep?.trim() || null;
@@ -75,6 +81,24 @@ export async function updateApplicationStatus(db: D1Database, id: string, status
   return result;
 }
 
+export async function updateApplicationDetails(db: D1Database, id: string, payload: ApplicationPayload) {
+  const company = payload.company?.trim() ?? "";
+  const role = payload.role?.trim() ?? "";
+  if (!company || !role) return { meta: { changes: 0 }, reason: "Company and role are required" };
+  const location = payload.location?.trim() || "Remote";
+  const appliedDate = payload.appliedDate?.trim() ?? "";
+  if (!isValidAppliedDate(appliedDate)) throw new Error("Applied date must be a valid YYYY-MM-DD value");
+  const salary = payload.salary?.trim() || null;
+  const url = payload.url?.trim() || null;
+  const notes = payload.notes?.trim() || null;
+  const contactEmail = payload.contactEmail?.trim() || null;
+  const source = payload.source?.trim() || null;
+  const nextStep = payload.nextStep?.trim() || null;
+  const nextActionDate = payload.nextActionDate || null;
+  await ensureApplicationsTable(db);
+  const result = await db.prepare("UPDATE applications SET company = ?, role = ?, location = ?, applied_date = ?, salary = ?, url = ?, notes = ?, contact_email = ?, source = ?, next_step = ?, next_action_date = ? WHERE id = ?").bind(company, role, location, appliedDate, salary, url, notes, contactEmail, source, nextStep, nextActionDate, id).run();
+  return { meta: result.meta, application: { id: Number(id), company, role, location, appliedDate, salary, url, notes, contactEmail, source, nextStep, nextActionDate } };
+}
 export async function getApplicationHistory(db: D1Database, id: string) {
   await ensureApplicationsTable(db);
   const result = await db.prepare("SELECT id, status, changed_at as changedAt, note FROM application_status_history WHERE application_id = ? ORDER BY changed_at ASC, id ASC").bind(id).all();
@@ -92,12 +116,13 @@ export async function rollbackApplicationStatus(db: D1Database, applicationId: s
   const results = await db.batch([update, ...toDelete]);
   return { meta: { changes: results[0].meta.changes }, status: previous.status };
 }
-export async function getApplicationAnalytics(db: D1Database) {
+export async function getApplicationAnalytics(db: D1Database, year?: string) {
   await ensureApplicationsTable(db);
-  const [applications, history] = await Promise.all([
-    db.prepare("SELECT id, status FROM applications").all<{id:number; status:string}>(),
-    db.prepare("SELECT application_id as applicationId, status, changed_at as changedAt FROM application_status_history ORDER BY changed_at ASC, id ASC").all<{applicationId:number; status:string; changedAt:number}>(),
-  ]);
+  const selectedYear = year && /^\d{4}$/.test(year) ? year : null;
+  const applications = selectedYear
+    ? await db.prepare("SELECT id, status FROM applications WHERE substr(applied_date, 1, 4) = ?").bind(selectedYear).all<{id:number; status:string}>()
+    : await db.prepare("SELECT id, status FROM applications").all<{id:number; status:string}>();
+  const history = await db.prepare("SELECT application_id as applicationId, status, changed_at as changedAt FROM application_status_history ORDER BY changed_at ASC, id ASC").all<{applicationId:number; status:string; changedAt:number}>();
   const byApplication = new Map<number, {status:string; changedAt:number}[]>();
   for (const entry of history.results) byApplication.set(entry.applicationId, [...(byApplication.get(entry.applicationId) ?? []), entry]);
   const hasReached = (entries:{status:string; changedAt:number}[], status:string) => entries.some(entry => entry.status === status);
