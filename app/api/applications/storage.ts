@@ -138,3 +138,63 @@ export async function getApplicationAnalytics(db: D1Database, year?: string) {
 
 
 
+
+type BackupHistory = { status: string; changedAt: number; note?: string | null };
+type BackupApplication = ApplicationPayload & { id: number; createdAt?: number; history?: BackupHistory[] };
+type BackupPayload = { version: 1; applications: BackupApplication[] };
+const backupStatuses = new Set(["Applied", "Phone screen", "Assessment", "Interview", "Offer", "Rejected"]);
+
+const nullableText = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : null;
+const validTimestamp = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0;
+
+export async function exportApplicationBackup(db: D1Database) {
+  await ensureApplicationsTable(db);
+  const [applications, history] = await Promise.all([
+    db.prepare("SELECT id, company, role, location, status, applied_date as appliedDate, salary, url, notes, contact_email as contactEmail, source, next_step as nextStep, next_action_date as nextActionDate, created_at as createdAt FROM applications ORDER BY applied_date DESC, id DESC").all<BackupApplication>(),
+    db.prepare("SELECT application_id as applicationId, status, changed_at as changedAt, note FROM application_status_history ORDER BY application_id ASC, changed_at ASC, id ASC").all<BackupHistory & { applicationId: number }>(),
+  ]);
+  const histories = new Map<number, BackupHistory[]>();
+  for (const entry of history.results) histories.set(entry.applicationId, [...(histories.get(entry.applicationId) ?? []), { status: entry.status, changedAt: entry.changedAt, note: entry.note }]);
+  return { version: 1 as const, exportedAt: new Date().toISOString(), applications: applications.results.map(application => ({ ...application, history: histories.get(application.id) ?? [] })) };
+}
+
+function validateBackup(input: unknown): BackupPayload {
+  if (!input || typeof input !== "object") throw new Error("Choose a valid Applyly JSON backup.");
+  const backup = input as { version?: unknown; applications?: unknown };
+  if (backup.version !== 1 || !Array.isArray(backup.applications)) throw new Error("Choose a valid Applyly JSON backup.");
+  const ids = new Set<number>();
+  const applications = backup.applications.map((entry, index) => {
+    if (!entry || typeof entry !== "object") throw new Error(`Application ${index + 1} is invalid.`);
+    const application = entry as BackupApplication;
+    if (!Number.isInteger(application.id) || application.id <= 0 || ids.has(application.id)) throw new Error(`Application ${index + 1} has an invalid ID.`);
+    ids.add(application.id);
+    const company = nullableText(application.company);
+    const role = nullableText(application.role);
+    const appliedDate = typeof application.appliedDate === "string" ? application.appliedDate : "";
+    const status = nullableText(application.status) ?? "Applied";
+    if (!company || !role || !isValidAppliedDate(appliedDate) || !backupStatuses.has(status)) throw new Error(`Application ${index + 1} has invalid required data.`);
+    const history = Array.isArray(application.history) ? application.history.map((item, historyIndex) => {
+      if (!item || typeof item !== "object") throw new Error(`History item ${historyIndex + 1} is invalid.`);
+      const record = item as BackupHistory;
+      if (!backupStatuses.has(record.status) || !validTimestamp(record.changedAt)) throw new Error(`History item ${historyIndex + 1} is invalid.`);
+      return { status: record.status, changedAt: record.changedAt, note: nullableText(record.note) };
+    }) : [];
+    if (history.some((entry, historyIndex) => historyIndex > 0 && entry.changedAt < history[historyIndex - 1].changedAt)) throw new Error(`Application ${index + 1} has out-of-order history.`);
+    if (history.length && history[history.length - 1].status !== status) throw new Error(`Application ${index + 1} has a status that does not match its history.`);
+    return { id: application.id, company, role, location: nullableText(application.location) ?? "Remote", status, appliedDate, salary: nullableText(application.salary), url: nullableText(application.url), notes: nullableText(application.notes), contactEmail: nullableText(application.contactEmail), source: nullableText(application.source), nextStep: nullableText(application.nextStep), nextActionDate: nullableText(application.nextActionDate), createdAt: validTimestamp(application.createdAt) ? application.createdAt : Date.now(), history };
+  });
+  return { version: 1, applications };
+}
+
+export async function importApplicationBackup(db: D1Database, input: unknown) {
+  const backup = validateBackup(input);
+  await ensureApplicationsTable(db);
+  const statements = [db.prepare("DELETE FROM application_status_history"), db.prepare("DELETE FROM applications")];
+  for (const application of backup.applications) {
+    statements.push(db.prepare("INSERT INTO applications (id, company, role, location, status, applied_date, salary, url, notes, contact_email, source, next_step, next_action_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(application.id, application.company, application.role, application.location, application.status, application.appliedDate, application.salary, application.url, application.notes, application.contactEmail, application.source, application.nextStep, application.nextActionDate, application.createdAt));
+    const history = application.history?.length ? application.history : [{ status: application.status, changedAt: application.createdAt ?? Date.now(), note: "Imported application" }];
+    for (const entry of history) statements.push(db.prepare("INSERT INTO application_status_history (application_id, status, changed_at, note) VALUES (?, ?, ?, ?)").bind(application.id, entry.status, entry.changedAt, entry.note));
+  }
+  await db.batch(statements);
+  return listApplications(db);
+}
