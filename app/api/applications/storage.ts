@@ -29,6 +29,18 @@ export type ApplicationPayload = {
   contactEmail?: string; source?: string; nextStep?: string; nextActionDate?: string;
 };
 
+export const applicationStatuses = ["Applied", "Phone screen", "Assessment", "Interview", "Offer", "Rejected"] as const;
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function validateApplicationFields(payload: ApplicationPayload, requireDate = true) {
+  if (!payload.company?.trim() || !payload.role?.trim()) return "Company and role are required";
+  if (requireDate && !isValidAppliedDate(payload.appliedDate)) return "Applied date must be a valid YYYY-MM-DD value";
+  if (payload.status?.trim() && !applicationStatuses.includes(payload.status.trim() as typeof applicationStatuses[number])) return "Status is invalid";
+  if (payload.nextActionDate && !isValidAppliedDate(payload.nextActionDate)) return "Next action date must be a valid YYYY-MM-DD value";
+  if (payload.url?.trim()) { try { const url = new URL(payload.url.trim()); if (!["http:", "https:"].includes(url.protocol)) return "Application URL must use HTTP or HTTPS"; } catch { return "Application URL is invalid"; } }
+  if (payload.contactEmail?.trim() && !emailPattern.test(payload.contactEmail.trim())) return "Contact email is invalid";
+  return null;
+}
 export function isValidAppliedDate(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(`${value}T12:00:00`);
@@ -37,7 +49,6 @@ export function isValidAppliedDate(value: unknown): value is string {
 export async function ensureApplicationsTable(db: D1Database) {
   await db.prepare(applicationsMigration).run();
   await db.prepare(statusHistoryMigration).run();
-  for (const statement of ["ALTER TABLE applications ADD COLUMN contact_email TEXT", "ALTER TABLE applications ADD COLUMN source TEXT", "ALTER TABLE applications ADD COLUMN next_step TEXT", "ALTER TABLE applications ADD COLUMN next_action_date TEXT"]) { try { await db.prepare(statement).run(); } catch (error) { if (!String(error).toLowerCase().includes("duplicate column")) throw error; } }
   await db.prepare("INSERT INTO application_status_history (application_id, status, changed_at, note) SELECT a.id, a.status, a.created_at, 'Imported from existing application' FROM applications a WHERE NOT EXISTS (SELECT 1 FROM application_status_history h WHERE h.application_id = a.id)").run();
 }
 
@@ -52,8 +63,9 @@ export async function createApplication(db: D1Database, payload: ApplicationPayl
   const role = payload.role?.trim() ?? "";
   const location = payload.location?.trim() || "Remote";
   const status = payload.status?.trim() || "Applied";
+  const validationError = validateApplicationFields(payload);
+  if (validationError) throw new Error(validationError);
   const appliedDate = payload.appliedDate?.trim() ?? "";
-  if (!isValidAppliedDate(appliedDate)) throw new Error("Applied date must be a valid YYYY-MM-DD value");
   const contactEmail = payload.contactEmail?.trim() || null;
   const source = payload.source?.trim() || null;
   const nextStep = payload.nextStep?.trim() || null;
@@ -71,6 +83,12 @@ export async function deleteApplication(db: D1Database, id: string) {
   return db.prepare("DELETE FROM applications WHERE id = ?").bind(id).run();
 }
 
+export async function deleteAllApplications(db: D1Database) {
+  await ensureApplicationsTable(db);
+  const result = await db.batch([db.prepare("DELETE FROM application_status_history"), db.prepare("DELETE FROM applications")]);
+  return { deleted: result[1].meta.changes };
+}
+
 export async function updateApplicationStatus(db: D1Database, id: string, status: string) {
   await ensureApplicationsTable(db);
   const current = await db.prepare("SELECT status FROM applications WHERE id = ?").bind(id).first<{status:string}>();
@@ -84,10 +102,10 @@ export async function updateApplicationStatus(db: D1Database, id: string, status
 export async function updateApplicationDetails(db: D1Database, id: string, payload: ApplicationPayload) {
   const company = payload.company?.trim() ?? "";
   const role = payload.role?.trim() ?? "";
-  if (!company || !role) return { meta: { changes: 0 }, reason: "Company and role are required" };
+  const validationError = validateApplicationFields(payload);
+  if (validationError) return { meta: { changes: 0 }, reason: validationError };
   const location = payload.location?.trim() || "Remote";
   const appliedDate = payload.appliedDate?.trim() ?? "";
-  if (!isValidAppliedDate(appliedDate)) throw new Error("Applied date must be a valid YYYY-MM-DD value");
   const salary = payload.salary?.trim() || null;
   const url = payload.url?.trim() || null;
   const notes = payload.notes?.trim() || null;
@@ -173,6 +191,8 @@ function validateBackup(input: unknown): BackupPayload {
     const appliedDate = typeof application.appliedDate === "string" ? application.appliedDate : "";
     const status = nullableText(application.status) ?? "Applied";
     if (!company || !role || !isValidAppliedDate(appliedDate) || !backupStatuses.has(status)) throw new Error(`Application ${index + 1} has invalid required data.`);
+    const fieldError = validateApplicationFields({ company, role, appliedDate, status, url: typeof application.url === "string" ? application.url : undefined, contactEmail: typeof application.contactEmail === "string" ? application.contactEmail : undefined, nextActionDate: typeof application.nextActionDate === "string" ? application.nextActionDate : undefined });
+    if (fieldError) throw new Error(`Application ${index + 1}: ${fieldError}.`);
     const history = Array.isArray(application.history) ? application.history.map((item, historyIndex) => {
       if (!item || typeof item !== "object") throw new Error(`History item ${historyIndex + 1} is invalid.`);
       const record = item as BackupHistory;

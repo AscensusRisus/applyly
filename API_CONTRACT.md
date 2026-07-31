@@ -36,7 +36,19 @@ Used by `POST /api/applications` and `{ "details": ... }` on `PATCH /api/applica
 }
 ```
 
-For creation, `company`, `role`, and `appliedDate` are required. `location` defaults to `Remote`; `status` defaults to `Applied`. Other fields are optional. The current implementation does not consistently validate `nextActionDate`, URL, email, or status values on every write; clients should send valid values.
+For creation, `company`, `role`, and `appliedDate` are required. `location` defaults to `Remote`; `status` defaults to `Applied`. Other fields are optional. The API validates these fields independently of the UI; clients should still send valid values.
+
+### Validation rules
+
+The create and details-update endpoints validate these fields independently of the UI:
+
+- `status`, when present, must be one of `Applied`, `Phone screen`, `Assessment`, `Interview`, `Offer`, or `Rejected`.
+- `appliedDate` is required and must be a real local `YYYY-MM-DD` date.
+- `nextActionDate`, when present, must be a real local `YYYY-MM-DD` date.
+- `url`, when present, must be an HTTP or HTTPS URL.
+- `contactEmail`, when present, must have a valid email shape.
+
+Validation failures return `400` with `{ "error": "..." }`.
 
 ### Application response
 
@@ -219,6 +231,19 @@ Request body: the version-1 backup object described above.
 
 - `200`: `{ "applications": [Application response] }`
 - `400`: malformed or invalid backup, duplicate IDs, invalid required fields, unsupported statuses, invalid timestamps, out-of-order history, or history/status mismatch.
+
+### `DELETE /api/applications/bulk-delete`
+
+Deletes all applications and status-history rows in one D1 batch transaction.
+
+- `200`: `{ "ok": true, "deleted": number }`
+- `500`: storage or database failure.
+
+### `GET /api/health`
+
+Returns local API health and capabilities advertised to future clients.
+
+- `200`: `{ "ok": true, "name": "applyly", "version": "0.1.0", "capabilities": string[] }`
 
 ## Compatibility rules
 

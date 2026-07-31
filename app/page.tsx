@@ -75,17 +75,21 @@ export default function Home() {
       setGreeting(now.getHours() < 12 ? "Good morning" : now.getHours() < 18 ? "Good afternoon" : "Good evening");
       setHydrated(true);
     });
-    fetch("/api/applications")
+    const controller = new AbortController();
+    fetch("/api/applications", { signal: controller.signal })
       .then(response => response.ok ? response.json() : Promise.reject(new Error("Unable to load applications")))
       .then(data => setApps(data.applications ?? []))
-      .catch(() => setError("Could not load your applications. Please refresh and try again."))
+      .catch(error => { if (error.name !== "AbortError") setError("Could not load your applications. Please refresh and try again."); })
       .finally(() => setLoading(false));
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
     if (view !== "insights") return;
+    const controller = new AbortController();
     const analyticsUrl = insightYear === "all" ? "/api/applications/analytics" : `/api/applications/analytics?year=${encodeURIComponent(insightYear)}`;
-    fetch(analyticsUrl).then(response => response.ok ? response.json() : Promise.reject(new Error())).then(data => setAnalytics(data)).catch(() => setError("Insights data could not be loaded."));
+    fetch(analyticsUrl, { signal: controller.signal }).then(response => response.ok ? response.json() : Promise.reject(new Error())).then(data => setAnalytics(data)).catch(error => { if (error.name !== "AbortError") setError("Insights data could not be loaded."); });
+    return () => controller.abort();
   }, [view, apps, insightYear]);
   const visible = useMemo(() => apps.filter(app =>
     (filter === "All applications" || app.status === filter) &&
@@ -173,8 +177,8 @@ export default function Home() {
     if (!apps.length || !window.confirm("Delete every application and its status history? This cannot be undone. Export a JSON backup first if you may need this data later.")) return;
     const previous = apps; setApps([]);
     try {
-      const results = await Promise.all(previous.map(app => fetch(`/api/applications/${app.id}`, { method:"DELETE" })));
-      if (results.some(result => !result.ok)) throw new Error();
+      const response = await fetch("/api/applications/bulk-delete", { method:"DELETE" });
+      if (!response.ok) throw new Error();
     } catch { setApps(previous); setError("Some applications could not be deleted."); }
   }
   return <div className="shell">

@@ -38,7 +38,7 @@ test("application API uses one storage layer for reads, writes, and status chang
   assert.match(storage, /substr\(applied_date, 1, 4\)/);
   assert.match(route, /listApplications/);
   assert.match(route, /createApplication/);
-  assert.match(route, /isValidAppliedDate/);
+  assert.match(route, /validateApplicationFields/);
   assert.match(statusRoute, /updateApplicationStatus/);
   assert.match(statusRoute, /rollbackApplicationStatus/);
   assert.match(statusRoute, /undoHistoryId/);
