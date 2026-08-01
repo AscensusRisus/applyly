@@ -199,13 +199,12 @@ const visible = useMemo(() => {
     <aside className="sidebar">
       <div className="brand">apply<span>ly</span></div>
       <nav className="nav" aria-label="Primary navigation">
-        <button className={view === "applications" ? "active" : ""} onClick={() => { setView("applications"); resetApplicationForm(); }}><span className="nav-mark applications-mark" aria-hidden="true"/><span>Applications</span></button>
-        <button className={view === "insights" ? "active" : ""} onClick={() => setView("insights")}><span className="nav-mark insights-mark" aria-hidden="true"/><span>Insights</span></button>
-        <button className={view === "settings" ? "active" : ""} onClick={() => setView("settings")}><span className="nav-mark settings-mark" aria-hidden="true"/><span>Settings</span></button><button className={view === "data" ? "active" : ""} onClick={() => setView("data")}><span className="nav-mark data-mark" aria-hidden="true"/><span>Data</span></button>
+        <button className={view === "applications" ? "active" : ""} aria-current={view === "applications" ? "page" : undefined} aria-label="Applications" data-label="Applications" title="Applications" onClick={() => { setView("applications"); resetApplicationForm(); }}><span className="nav-mark applications-mark" aria-hidden="true"/><span>Applications</span></button>
+        <button className={view === "insights" ? "active" : ""} aria-current={view === "insights" ? "page" : undefined} aria-label="Insights" data-label="Insights" title="Insights" onClick={() => setView("insights")}><span className="nav-mark insights-mark" aria-hidden="true"/><span>Insights</span></button>
+        <button className={view === "settings" ? "active" : ""} aria-current={view === "settings" ? "page" : undefined} aria-label="Settings" data-label="Settings" title="Settings" onClick={() => setView("settings")}><span className="nav-mark settings-mark" aria-hidden="true"/><span>Settings</span></button><button className={view === "data" ? "active" : ""} aria-current={view === "data" ? "page" : undefined} aria-label="Data" data-label="Data" title="Data" onClick={() => setView("data")}><span className="nav-mark data-mark" aria-hidden="true"/><span>Data</span></button>
       </nav>
-      <div className="sidebar-foot">A calm place to keep your job search moving.<br/><br/>{apps.length} saved application{apps.length === 1 ? "" : "s"}</div>
     </aside>
-    <main className="content">
+    <main id="main-content" className="content">
       <header className="topbar"><div><p className="eyebrow">{todayLabel}</p><h1>{view === "applications" ? (hydrated ? `${greeting}, ${displayName}.` : "Welcome back.") : view === "insights" ? "Your search at a glance." : view === "data" ? "Keep your data portable." : "Make Applyly yours."}</h1><p className="sub">{view === "applications" ? "Here's the pulse of your job search." : view === "insights" ? "Patterns and progress across your applications." : view === "data" ? "Export a backup or restore your application history." : "Update your preferences and manage your data."}</p></div></header>
       {error && <div className="notice error">{error}<button onClick={() => setError("")} aria-label="Dismiss">Dismiss</button></div>}
       {view === "applications" && <>
