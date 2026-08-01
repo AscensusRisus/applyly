@@ -1,6 +1,6 @@
 # Applyly
 
-Applyly `0.1.0` is a local-first job application tracker for keeping applications, follow-ups, status changes, and pipeline performance in one place.
+Applyly `0.2.0` is a local-first job application tracker for keeping applications, follow-ups, status changes, and pipeline performance in one place.
 
 It is built with React 19, vinext, Vite, Cloudflare Workers, Cloudflare D1/SQLite, Drizzle ORM, and Drizzle SQL migrations.
 

@@ -1,6 +1,6 @@
 # Applyly API contract
 
-This document describes the active HTTP endpoints implemented under `app/api/applications`. It reflects the current `0.1.0` implementation and preserves the existing UI contract.
+This document describes the active HTTP endpoints implemented under `app/api/applications`. It reflects the current `0.2.0` implementation and preserves the existing UI contract.
 
 ## Conventions
 
@@ -243,7 +243,7 @@ Deletes all applications and status-history rows in one D1 batch transaction.
 
 Returns local API health and capabilities advertised to future clients.
 
-- `200`: `{ "ok": true, "name": "applyly", "version": "0.1.0", "capabilities": string[] }`
+- `200`: `{ "ok": true, "name": "applyly", "version": "0.2.0", "capabilities": string[] }`
 
 ## Compatibility rules
 
