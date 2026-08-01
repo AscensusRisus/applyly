@@ -124,11 +124,13 @@ test("Drizzle metadata records every committed migration", async () => {
   assert.match(detailsSnapshot, /contact_email/);
 });
 test("data transfers include structured backups, independent formats, and explicit restore confirmation", async () => {
-  const [storage, backupRoute, transfer, xlsx, packageJson, page] = await Promise.all([
+  const [storage, backupRoute, transfer, xlsx, docx, options, packageJson, page] = await Promise.all([
     read("app/api/applications/storage.ts"),
     read("app/api/applications/backup/route.ts"),
     read("app/components/data-transfer-panel.tsx"),
     read("app/lib/xlsx-transfer.ts"),
+    read("app/lib/docx-transfer.ts"),
+    read("app/lib/application-options.ts"),
     read("package.json"),
     read("app/page.tsx"),
   ]);
@@ -148,6 +150,8 @@ test("data transfers include structured backups, independent formats, and explic
   assert.match(transfer, /text\/csv/);
   assert.match(transfer, /createXlsx/);
   assert.match(transfer, /readXlsx/);
+  assert.match(transfer, /createDocx/);
+  assert.match(transfer, /wordprocessingml\.document/);
   assert.doesNotMatch(transfer, /await import\([^)]*xlsx-transfer/);
   assert.match(transfer, /Open PDF report/);
   assert.match(transfer, /Save as PDF/);
@@ -158,10 +162,19 @@ test("data transfers include structured backups, independent formats, and explic
   assert.match(xlsx, /unzipSync/);
   assert.match(xlsx, /Applications/);
   assert.match(xlsx, /Status History/);
+  assert.match(docx, /word\/document\.xml/);
+  assert.match(docx, /zipSync/);
+  assert.match(docx, /Applyly application report/);
+  assert.match(options, /HiringCafe/);
+  assert.match(options, /Y Combinator Jobs/);
   assert.match(packageJson, /fflate/);
   assert.doesNotMatch(packageJson, /"xlsx"/);
   assert.doesNotMatch(packageJson, /exceljs/);
   assert.match(page, /Delete every application and its status history/);
   assert.match(page, /view === "data"/);
   assert.match(page, /DataTransferPanel/);
+  assert.match(page, /sourceFilter/);
+  assert.match(page, /salaryFilter/);
+  assert.match(page, /pagedApplications/);
+  assert.match(page, /Search company, role, location, date, source or salary/);
 });
