@@ -35,6 +35,8 @@ test("application API uses one storage layer for reads, writes, and status chang
   assert.match(storage, /application_status_history/);
   assert.match(storage, /contact_email/);
   assert.match(storage, /getApplicationAnalytics/);
+  assert.match(storage, /reachedContact/);
+  assert.match(storage, /responseRate/);
   assert.match(storage, /substr\(applied_date, 1, 4\)/);
   assert.match(route, /listApplications/);
   assert.match(route, /createApplication/);
@@ -176,5 +178,21 @@ test("data transfers include structured backups, independent formats, and explic
   assert.match(page, /sourceFilter/);
   assert.match(page, /salaryFilter/);
   assert.match(page, /pagedApplications/);
+  assert.match(page, /customRowsMode/);
+  assert.match(page, /Custom/);
   assert.match(page, /Search company, role, location, date, source or salary/);
+});
+test("Contact and Withdrawn are shared API-supported statuses", async () => {
+  const [options, storage, insights, contract] = await Promise.all([
+    read("app/lib/application-options.ts"),
+    read("app/api/applications/storage.ts"),
+    read("app/components/insights-panel.tsx"),
+    read("API_CONTRACT.md"),
+  ]);
+  for (const status of ["Contact", "Withdrawn"]) {
+    assert.match(options, new RegExp(status));
+    assert.match(storage, /new Set\(applicationStatuses\)/);
+    assert.match(insights, new RegExp(status));
+    assert.match(contract, new RegExp(status));
+  }
 });

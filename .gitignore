@@ -1,4 +1,4 @@
-﻿# Dependencies
+# Dependencies
 /node_modules/
 /.pnp
 .pnp.*
@@ -49,3 +49,6 @@ yarn-error.log*
 .DS_Store
 .vercel/
 next-env.d.ts
+
+# Local data backups
+/backups/

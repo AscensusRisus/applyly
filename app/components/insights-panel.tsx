@@ -6,6 +6,8 @@ import { formatStoredDate } from "../lib/date-format";
 
 export type Analytics = {
   totalApplications:number;
+  reachedContact:number;
+  responseRate:number;
   reachedAssessment:number;
   reachedInterview:number;
   reachedOffer:number;
@@ -13,16 +15,18 @@ export type Analytics = {
   transitions:{applicationToAssessment:number; applicationToInterview:number; applicationToRejected:number; interviewToOffer:number; interviewToRejected:number};
 };
 
-const statuses = ["Applied", "Phone screen", "Assessment", "Interview", "Offer", "Rejected"];
+const statuses = ["Applied", "Contact", "Phone screen", "Assessment", "Interview", "Offer", "Rejected", "Withdrawn"];
 const trendLabels = ["Total applications", ...statuses];
 const statusColors:Record<string,string> = {
   "Total applications":"#26312b",
   Applied:"#8d78ee",
+  Contact:"#d38b45",
   "Phone screen":"#4f8fd9",
   Assessment:"#d28ce7",
   Interview:"#e3a942",
   Offer:"#3aa76d",
   Rejected:"#d45f62",
+  Withdrawn:"#8b9390",
 };
 const statusClass = (status:string) => status.toLowerCase().replaceAll(" ", "-");
 
@@ -31,7 +35,7 @@ export default function InsightsPanel({ apps, analytics, selectedYear, onSelectY
   const years = [...new Set(apps.map(app => app.appliedDate.slice(0, 4)).filter(year => /^\d{4}$/.test(year)))].sort((a, b) => Number(b) - Number(a));
   const scopedApps = selectedYear === "all" ? apps : apps.filter(app => app.appliedDate.startsWith(`${selectedYear}-`));
   const counts = statuses.map(status => ({ status, count:scopedApps.filter(app => app.status === status).length }));
-  const active = scopedApps.filter(app => app.status !== "Rejected").length;
+  const active = scopedApps.filter(app => !["Rejected", "Withdrawn"].includes(app.status)).length;
   const healthPercent = scopedApps.length ? Math.round(active / scopedApps.length * 100) : 0;
   let statusCursor = 0;
   const donutGradient = scopedApps.length ? `conic-gradient(${counts.map(item => { const start = statusCursor; statusCursor += item.count / scopedApps.length * 100; return `${statusColors[item.status]} ${start}% ${statusCursor}%`; }).join(",")})` : "#eef0ed";

@@ -1,4 +1,4 @@
-export const applicationStatuses = ["Applied", "Phone screen", "Assessment", "Interview", "Offer", "Rejected"] as const;
+export const applicationStatuses = ["Applied", "Contact", "Phone screen", "Assessment", "Interview", "Offer", "Rejected", "Withdrawn"] as const;
 
 export const applicationSources = [
   "Company website", "LinkedIn", "Indeed", "Glassdoor", "Wellfound", "HiringCafe",

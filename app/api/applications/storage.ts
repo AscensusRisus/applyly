@@ -29,7 +29,8 @@ export type ApplicationPayload = {
   contactEmail?: string; source?: string; nextStep?: string; nextActionDate?: string;
 };
 
-export const applicationStatuses = ["Applied", "Phone screen", "Assessment", "Interview", "Offer", "Rejected"] as const;
+import { applicationStatuses } from "../../lib/application-options";
+export { applicationStatuses };
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateApplicationFields(payload: ApplicationPayload, requireDate = true) {
@@ -144,6 +145,7 @@ export async function getApplicationAnalytics(db: D1Database, year?: string) {
   const byApplication = new Map<number, {status:string; changedAt:number}[]>();
   for (const entry of history.results) byApplication.set(entry.applicationId, [...(byApplication.get(entry.applicationId) ?? []), entry]);
   const hasReached = (entries:{status:string; changedAt:number}[], status:string) => entries.some(entry => entry.status === status);
+  const reachedContact = applications.results.filter(app => { const entries = byApplication.get(app.id) ?? []; return entries.some(entry => ["Contact", "Phone screen", "Assessment", "Interview", "Offer"].includes(entry.status)); }).length;
   const reachedInterview = applications.results.filter(app => { const entries = byApplication.get(app.id) ?? []; return hasReached(entries, "Interview") || hasReached(entries, "Offer"); }).length;
   const reachedOffer = applications.results.filter(app => hasReached(byApplication.get(app.id) ?? [], "Offer")).length;
   const reachedAssessment = applications.results.filter(app => { const entries = byApplication.get(app.id) ?? []; return entries.some(entry => ["Assessment", "Interview", "Offer"].includes(entry.status)); }).length;
@@ -151,7 +153,8 @@ export async function getApplicationAnalytics(db: D1Database, year?: string) {
   const interviewToOffer = applications.results.filter(app => { const entries = byApplication.get(app.id) ?? []; const interview = entries.find(entry => entry.status === "Interview"); return Boolean(interview && entries.some(entry => entry.status === "Offer" && entry.changedAt > interview.changedAt)); }).length;
   const applicationToRejected = rejected;
   const interviewToRejected = applications.results.filter(app => { const entries = byApplication.get(app.id) ?? []; const interview = entries.find(entry => entry.status === "Interview"); return Boolean(interview && entries.some(entry => entry.status === "Rejected" && entry.changedAt > interview.changedAt)); }).length;
-  return { totalApplications: applications.results.length, reachedAssessment, reachedInterview, reachedOffer, rejected, transitions: { applicationToAssessment: reachedAssessment, applicationToInterview: reachedInterview, applicationToRejected, interviewToOffer, interviewToRejected } };
+  const responseRate = applications.results.length ? Math.round(reachedContact / applications.results.length * 100) : 0;
+  return { totalApplications: applications.results.length, reachedContact, responseRate, reachedAssessment, reachedInterview, reachedOffer, rejected, transitions: { applicationToAssessment: reachedAssessment, applicationToInterview: reachedInterview, applicationToRejected, interviewToOffer, interviewToRejected } };
 }
 
 
@@ -160,7 +163,7 @@ export async function getApplicationAnalytics(db: D1Database, year?: string) {
 type BackupHistory = { status: string; changedAt: number; note?: string | null };
 type BackupApplication = ApplicationPayload & { id: number; createdAt?: number; history?: BackupHistory[] };
 type BackupPayload = { version: 1; applications: BackupApplication[] };
-const backupStatuses = new Set(["Applied", "Phone screen", "Assessment", "Interview", "Offer", "Rejected"]);
+const backupStatuses = new Set(applicationStatuses);
 
 const nullableText = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : null;
 const validTimestamp = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0;

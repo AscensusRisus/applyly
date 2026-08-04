@@ -24,7 +24,7 @@ Used by `POST /api/applications` and `{ "details": ... }` on `PATCH /api/applica
   "company": "string",
   "role": "string",
   "location": "string",
-  "status": "Applied | Phone screen | Assessment | Interview | Offer | Rejected",
+  "status": "Applied | Contact | Phone screen | Assessment | Interview | Offer | Rejected | Withdrawn",
   "appliedDate": "YYYY-MM-DD",
   "salary": "string | null",
   "url": "string | null",
@@ -42,7 +42,7 @@ For creation, `company`, `role`, and `appliedDate` are required. `location` defa
 
 The create and details-update endpoints validate these fields independently of the UI:
 
-- `status`, when present, must be one of `Applied`, `Phone screen`, `Assessment`, `Interview`, `Offer`, or `Rejected`.
+- `status`, when present, must be one of `Applied`, `Contact`, `Phone screen`, `Assessment`, `Interview`, `Offer`, `Rejected`, or `Withdrawn`.
 - `appliedDate` is required and must be a real local `YYYY-MM-DD` date.
 - `nextActionDate`, when present, must be a real local `YYYY-MM-DD` date.
 - `url`, when present, must be an HTTP or HTTPS URL.
@@ -172,6 +172,8 @@ Returns pipeline metrics calculated from status history. `?year=YYYY` scopes app
 ```json
 {
   "totalApplications": 10,
+  "reachedContact": 8,
+  "responseRate": 80,
   "reachedAssessment": 6,
   "reachedInterview": 4,
   "reachedOffer": 1,
