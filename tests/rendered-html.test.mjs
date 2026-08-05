@@ -82,6 +82,14 @@ test("the UI supports navigation, insights, settings, and optimistic records wit
   assert.match(page, /getFullYear/);
   assert.match(page, /defaultSource/);
   assert.match(page, /defaultDateMode/);
+  assert.match(page, /applyly-dark/);
+  assert.match(page, /dusk-stone/);
+  assert.match(page, /warm-taupe/);
+  assert.match(page, /indigo-paper/);
+  assert.match(page, /harbor-blue/);
+  assert.match(page, /berry-noir/);
+  assert.match(page, /greenwood/);
+  assert.match(page, /earth-sage/);
   assert.match(page, /None \(leave blank\)/);
   assert.match(page, /Today \(device-local\)/);
   assert.match(page, /dateLocale/);
