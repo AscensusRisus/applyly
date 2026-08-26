@@ -1,9 +1,11 @@
 import { env } from "cloudflare:workers";
-import { applicationStatuses, deleteApplication, getApplicationHistory, rollbackApplicationStatus, updateApplicationDetails, updateApplicationStatus, type ApplicationPayload } from "../storage";
+import { applicationExists, applicationStatuses, deleteApplication, getApplicationHistory, rollbackApplicationStatus, updateApplicationDetails, updateApplicationStatus, type ApplicationPayload } from "../storage";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  try { return Response.json({ history: await getApplicationHistory(env.DB, id) }); }
+  try {
+    if (!(await applicationExists(env.DB, id))) return Response.json({ error: "Application not found" }, { status: 404 });
+    return Response.json({ history: await getApplicationHistory(env.DB, id) }); }
   catch (error) { return Response.json({ error: String(error) }, { status: 500 }); }
 }
 
@@ -13,6 +15,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try { payload = (await request.json()) as typeof payload; } catch { return Response.json({ error: "Request body must be valid JSON" }, { status: 400 }); }
   if (payload.undoHistoryId) {
     try {
+      if (!(await applicationExists(env.DB, id))) return Response.json({ error: "Application not found" }, { status: 404 });
       const result = await rollbackApplicationStatus(env.DB, id, payload.undoHistoryId);
       if (!result.meta.changes) return Response.json({ error: result.reason ?? "History entry not found" }, { status: 400 });
       return Response.json({ ok: true, status: result.status });

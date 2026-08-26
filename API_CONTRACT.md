@@ -1,255 +1,391 @@
 # Applyly API contract
 
-This document describes the active HTTP endpoints implemented under `app/api/applications`. It reflects the current `0.2.0` implementation and preserves the existing UI contract.
+This document describes every active HTTP endpoint in Applyly 0.2.0. API version 1 preserves the existing application UI contract and adds a separately paired, read-only browser-extension namespace.
 
 ## Conventions
 
-- Base URL is the same origin as the running Applyly app, usually `http://localhost:3000`.
-- Requests and successful responses use JSON unless noted otherwise.
-- Calendar dates use local `YYYY-MM-DD` format. They are not timestamps.
-- History and backup timestamps are Unix milliseconds.
-- Empty optional text values are stored and returned as `null`.
-- Errors currently have no machine-readable `code` field. The contract is HTTP status plus `{ "error": "..." }`.
-- The API currently has no authentication, CORS headers, rate limiting, or extension-specific permission model.
-- Malformed JSON is normalized to 400 by the backup import route. The create route does not currently normalize JSON parsing failures, so clients should send valid JSON.
+- The local base URL is normally http://localhost:3000.
+- Requests and successful responses use JSON unless stated otherwise.
+- Calendar dates use local YYYY-MM-DD values and are not timestamps.
+- History, pairing, and backup timestamps are Unix milliseconds.
+- Empty optional text values are stored and returned as null.
+- Errors use an HTTP status and a JSON object shaped as { "error": "Human-readable message" }. There is no machine-readable error code yet.
+- Existing application endpoints remain same-origin and unauthenticated for backward compatibility with the local UI.
+- Extension clients use host permission for the local Applyly origin. Applyly does not emit general CORS headers.
+- Extension data access requires a pairing token. Only the token hash is stored.
+- Extension mutations are disabled in API version 1.
 
-## Shared schemas
+## Shared application schema
 
-### Application payload
+Application create and detail-update payload:
 
-Used by `POST /api/applications` and `{ "details": ... }` on `PATCH /api/applications/:id`.
-
-```json
-{
-  "company": "string",
-  "role": "string",
-  "location": "string",
-  "status": "Applied | Contact | Phone screen | Assessment | Interview | Offer | Rejected | Withdrawn",
-  "appliedDate": "YYYY-MM-DD",
-  "salary": "string | null",
-  "url": "string | null",
-  "notes": "string | null",
-  "contactEmail": "string | null",
-  "source": "string | null",
-  "nextStep": "string | null",
-  "nextActionDate": "string | null"
-}
-```
-
-For creation, `company`, `role`, and `appliedDate` are required. `location` defaults to `Remote`; `status` defaults to `Applied`. Other fields are optional. The API validates these fields independently of the UI; clients should still send valid values.
-
-### Validation rules
-
-The create and details-update endpoints validate these fields independently of the UI:
-
-- `status`, when present, must be one of `Applied`, `Contact`, `Phone screen`, `Assessment`, `Interview`, `Offer`, `Rejected`, or `Withdrawn`.
-- `appliedDate` is required and must be a real local `YYYY-MM-DD` date.
-- `nextActionDate`, when present, must be a real local `YYYY-MM-DD` date.
-- `url`, when present, must be an HTTP or HTTPS URL.
-- `contactEmail`, when present, must have a valid email shape.
-
-Validation failures return `400` with `{ "error": "..." }`.
-
-### Application response
-
-```json
-{
-  "id": 123,
-  "company": "Example Co",
-  "role": "Designer",
-  "location": "Remote",
-  "status": "Applied",
-  "appliedDate": "2026-07-31",
-  "salary": null,
-  "url": null,
-  "notes": null,
-  "contactEmail": null,
-  "source": null,
-  "nextStep": null,
-  "nextActionDate": null
-}
-```
-
-### Error response
-
-```json
-{ "error": "Human-readable error message" }
-```
-
-## Endpoints
-
-### `GET /api/applications`
-
-Returns applications ordered by applied date descending, then ID descending.
-
-- `200`: `{ "applications": [Application response] }`
-- `500`: storage or database failure.
-
-### `POST /api/applications`
-
-Creates an application and its initial status-history record.
-
-Request body: Application payload.
-
-- `201`: `{ "application": Application response }`
-- `400`: company or role is missing.
-- `400`: applied date is not a valid local `YYYY-MM-DD` date.
-- `500`: storage creation failure.
-
-### `GET /api/applications/:id`
-
-Returns status history for the numeric application ID.
-
-`200` response:
-
-```json
-{
-  "history": [
     {
-      "id": 1,
-      "status": "Applied",
-      "changedAt": 1785492000000,
-      "note": "Application created"
+      "company": "string",
+      "role": "string",
+      "location": "string",
+      "status": "Applied | Contact | Phone screen | Assessment | Interview | Offer | Rejected | Withdrawn",
+      "appliedDate": "YYYY-MM-DD",
+      "salary": "string | null",
+      "url": "string | null",
+      "notes": "string | null",
+      "contactEmail": "string | null",
+      "source": "string | null",
+      "nextStep": "string | null",
+      "nextActionDate": "YYYY-MM-DD | null",
+      "companyDomain": "string | null",
+      "companyAliases": ["string"]
     }
-  ]
-}
-```
 
-- `500`: storage or database failure.
-- Unknown IDs currently return `200` with an empty history rather than `404`.
+For creation, company, role, and appliedDate are required. Location defaults to Remote and status defaults to Applied. Company identity fields are optional and backward compatible.
 
-### `PATCH /api/applications/:id`
+Application responses also contain:
 
-Supports one operation per request.
-
-#### Status update
-
-```json
-{ "status": "Interview" }
-```
-
-- `200`: `{ "ok": true }`
-- `400`: status is missing or blank.
-- `404`: application does not exist.
-- `500`: storage update failure.
-
-#### Details update
-
-```json
-{ "details": { /* Application payload */ } }
-```
-
-- `200`: `{ "ok": true, "application": Application response }`
-- `400`: invalid applied date, missing company/role, or application not found.
-- `500`: storage update failure.
-
-#### Undo status history
-
-```json
-{ "undoHistoryId": 7 }
-```
-
-Removes the selected history entry and all later entries, restoring the previous status. The initial creation entry cannot be undone.
-
-- `200`: `{ "ok": true, "status": "Interview" }`
-- `400`: invalid/missing history entry or attempt to undo the creation entry.
-- `500`: storage failure.
-
-### `DELETE /api/applications/:id`
-
-Deletes the application and its status history.
-
-- `200`: `{ "ok": true }`
-- `404`: application does not exist.
-- `500`: deletion failure.
-
-### `GET /api/applications/analytics`
-
-Returns pipeline metrics calculated from status history. `?year=YYYY` scopes applications by applied year. Missing or invalid year values are treated as all-time.
-
-`200` response:
-
-```json
-{
-  "totalApplications": 10,
-  "reachedContact": 8,
-  "responseRate": 80,
-  "reachedAssessment": 6,
-  "reachedInterview": 4,
-  "reachedOffer": 1,
-  "rejected": 3,
-  "transitions": {
-    "applicationToAssessment": 6,
-    "applicationToInterview": 4,
-    "applicationToRejected": 3,
-    "interviewToOffer": 1,
-    "interviewToRejected": 2
-  }
-}
-```
-
-- `500`: storage or database failure.
-
-### `GET /api/applications/backup`
-
-Returns a complete version-1 backup containing applications and status history.
-
-```json
-{
-  "version": 1,
-  "exportedAt": "2026-07-31T12:00:00.000Z",
-  "applications": [
     {
       "id": 123,
-      "company": "Example Co",
-      "role": "Designer",
-      "location": "Remote",
-      "status": "Applied",
-      "appliedDate": "2026-07-31",
-      "salary": null,
-      "url": null,
-      "notes": null,
-      "contactEmail": null,
-      "source": null,
-      "nextStep": null,
-      "nextActionDate": null,
-      "createdAt": 1785492000000,
+      "companyKey": "normalized company name",
+      "companyDomain": "example.com | null",
+      "companyAliases": ["Previous name", "Brand name"]
+    }
+
+Company keys are generated by lowercasing, removing punctuation and diacritics, normalizing whitespace, and removing common legal suffixes. A company domain may be inferred from a direct company application URL. Known job-board and applicant-tracking domains are not treated as company domains.
+
+### Validation
+
+The API validates independently of the UI:
+
+- Status must be one of the documented statuses.
+- appliedDate is required and must be a real YYYY-MM-DD date.
+- nextActionDate, when present, must be a real YYYY-MM-DD date.
+- URL values must use HTTP or HTTPS.
+- Contact email must have a valid email shape.
+- Company and role cannot be blank.
+
+Validation failures return 400.
+
+## Application endpoints
+
+### GET /api/applications
+
+Returns applications ordered by applied date descending and then ID descending.
+
+- 200: { "applications": [Application] }
+- 500: storage failure
+
+### POST /api/applications
+
+Creates an application, company identity, and initial status-history entry.
+
+- 201: { "application": Application }
+- 400: malformed JSON or invalid application fields
+- 409: a canonical application URL or same-company/role/date match already exists; returns code DUPLICATE_APPLICATION and a summary of the existing record
+  - send allowDuplicate: true only after explicit user confirmation when the second record is intentional
+- 500: storage failure
+
+### GET /api/applications/:id
+
+Returns status history for an existing numeric application ID.
+
+    {
       "history": [
-        { "status": "Applied", "changedAt": 1785492000000, "note": "Application created" }
+        {
+          "id": 1,
+          "status": "Applied",
+          "changedAt": 1785492000000,
+          "note": "Application created"
+        }
       ]
     }
-  ]
-}
-```
 
-- `200`: the backup object above.
-- `500`: storage or database failure.
+- 200: history response
+- 404: application does not exist
+- 500: storage failure
 
-### `POST /api/applications/backup`
+### PATCH /api/applications/:id
 
-Replaces all applications and status history with a valid version-1 backup. The UI asks for confirmation before calling this endpoint; the endpoint itself validates but does not ask for confirmation.
+The request performs one operation.
 
-Request body: the version-1 backup object described above.
+Status update:
 
-- `200`: `{ "applications": [Application response] }`
-- `400`: malformed or invalid backup, duplicate IDs, invalid required fields, unsupported statuses, invalid timestamps, out-of-order history, or history/status mismatch.
+    { "status": "Interview" }
 
-### `DELETE /api/applications/bulk-delete`
+- 200: { "ok": true }
+- 400: malformed JSON, missing status, or unsupported status
+- 404: application does not exist
+- 500: storage failure
 
-Deletes all applications and status-history rows in one D1 batch transaction.
+Details update:
 
-- `200`: `{ "ok": true, "deleted": number }`
-- `500`: storage or database failure.
+    { "details": Application payload }
 
-### `GET /api/health`
+- 200: { "ok": true, "application": Application }
+- 400: malformed JSON or invalid application fields
+- 404: application does not exist
+- 500: storage failure
 
-Returns local API health and capabilities advertised to future clients.
+Undo status history:
 
-- `200`: `{ "ok": true, "name": "applyly", "version": "0.2.0", "capabilities": string[] }`
+    { "undoHistoryId": 7 }
+
+The selected history entry and all later entries are removed, and the application returns to the preceding status. The creation entry cannot be undone.
+
+- 200: { "ok": true, "status": "Interview" }
+- 400: invalid history entry or attempt to undo the creation entry
+- 404: application does not exist
+- 500: storage failure
+
+### DELETE /api/applications/:id
+
+Deletes an application and its status history.
+
+- 200: { "ok": true }
+- 404: application does not exist
+- 500: storage failure
+
+### GET /api/applications/analytics
+
+Returns history-aware pipeline metrics. The optional year query parameter scopes applications by applied year. Missing or invalid years use all-time data.
+
+    {
+      "totalApplications": 10,
+      "reachedContact": 8,
+      "responseRate": 80,
+      "reachedAssessment": 6,
+      "reachedInterview": 4,
+      "reachedOffer": 1,
+      "rejected": 3,
+      "transitions": {
+        "applicationToAssessment": 6,
+        "applicationToInterview": 4,
+        "applicationToRejected": 3,
+        "interviewToOffer": 1,
+        "interviewToRejected": 2
+      }
+    }
+
+- 200: analytics response
+- 500: storage failure
+
+### GET /api/applications/backup
+
+Returns a complete version-1 JSON backup. It contains applications, optional company identity fields, createdAt, and complete status history.
+
+- 200: backup object
+- 500: storage failure
+
+### POST /api/applications/backup
+
+Validates and transactionally replaces applications and status history with a version-1 backup. Older version-1 backups without company identity fields remain supported; identities are generated during import.
+
+- 200: { "applications": [Application] }
+- 400: malformed or invalid backup, duplicate IDs, invalid fields, unsupported statuses, invalid timestamps, out-of-order history, or history/status mismatch
+
+### DELETE /api/applications/bulk-delete
+
+Deletes all applications and status history in one D1 batch.
+
+- 200: { "ok": true, "deleted": number }
+- 500: storage failure
+
+## Capability handshake
+
+### GET /api/health
+
+Returns application health and the versioned client handshake.
+
+    {
+      "ok": true,
+      "name": "applyly",
+      "version": "0.2.0",
+      "apiVersion": 1,
+      "backupVersion": 1,
+      "statuses": ["Applied", "Contact", "Phone screen", "Assessment", "Interview", "Offer", "Rejected", "Withdrawn"],
+      "capabilities": ["applications", "status-history", "analytics", "backup", "bulk-delete", "extension-company-match", "extension-page-match"],
+      "extension": {
+        "supported": true,
+        "apiBase": "/api/extension",
+        "transport": "extension-host-permission",
+        "pairingRequired": true,
+        "paired": false,
+        "mutationsEnabled": false,
+        "features": ["company-match", "page-match", "application-url-match", "per-candidate-matches", "guided-card-actions"]
+      }
+    }
+
+- 200: handshake response
+- 500: database or pairing-state failure
+
+Clients must check apiVersion and extension feature flags rather than assuming support from the application version.
+
+## Extension pairing
+
+### GET /api/extension/pairing
+
+Returns pairing state without exposing the token.
+
+- 200: { "paired": boolean, "createdAt": number | null }
+- 500: storage failure
+
+### POST /api/extension/pairing
+
+Creates or rotates the single local extension pairing. The request must originate from the Applyly origin or a non-browser local client and include:
+
+    X-Applyly-Pairing: manage
+
+The token is returned once. Applyly stores only its SHA-256 hash.
+
+- 201: { "paired": true, "token": "64-character token", "createdAt": number, "message": "..." }
+- 403: missing management header or cross-origin management attempt
+- 500: storage failure
+
+### DELETE /api/extension/pairing
+
+Revokes the current pairing. It requires the same management header and local-origin rule as creation.
+
+- 200: { "paired": false }
+- 403: missing management header or cross-origin management attempt
+- 500: storage failure
+
+## Extension company matching
+
+### POST /api/extension/match
+
+This read-only company-identity endpoint is available in API version 1 and requires:
+
+    Authorization: Bearer PAIRING_TOKEN
+    Content-Type: application/json
+
+Request:
+
+    {
+      "company": "Example Technologies Inc.",
+      "domain": "example.com",
+      "url": "https://example.com/careers/123",
+      "aliases": ["Example Tech"]
+    }
+
+At least one usable company name, alias, or company domain is required. The API compares normalized company names, stored aliases, and conservative company domains.
+
+Response:
+
+    {
+      "query": {
+        "company": "Example Technologies Inc.",
+        "companyKey": "example technologies",
+        "domain": "example.com",
+        "aliases": ["Example Tech"]
+      },
+      "matches": [
+        {
+          "id": 123,
+          "company": "Example Technologies",
+          "role": "Software Engineer",
+          "status": "Interview",
+          "appliedDate": "2026-08-01",
+          "location": "Remote",
+          "source": "Company website",
+          "url": "https://example.com/careers/123",
+          "roleScore": 0,
+          "matchKind": "company-history",
+          "score": 100,
+          "reasons": ["company-domain", "company-name"]
+        }
+      ]
+    }
+
+- 200: match response, including an empty matches array when nothing matches
+- 400: malformed JSON or no usable company identity
+- 401: missing or invalid pairing token
+- 500: storage failure
+
+## Extension page matching
+
+### POST /api/extension/page-match
+
+This read-only endpoint matches one detail page or a collection of visible job entries. It requires the same bearer pairing token as the company-match endpoint. Both one-time scans and opt-in persistent page guidance use this contract; guidance adds no mutation capability.
+
+Request:
+
+    {
+      "pageUrl": "https://wellfound.com/jobs/applications",
+      "candidates": [
+        {
+          "company": "Example Technologies",
+          "role": "Software Engineer",
+          "url": "https://wellfound.com/jobs/123456-software-engineer",
+          "domain": "example.com",
+          "aliases": []
+        }
+      ]
+    }
+
+The candidates array is limited to 100 entries. Each candidate needs a usable company name, domain, or HTTP/HTTPS application URL. Matching priority is:
+
+1. normalized application URL, including stable Wellfound, LinkedIn, Indeed, Greenhouse, and Workable job identifiers;
+2. company domain;
+3. normalized company name and aliases.
+
+Known tracking parameters, fragments, and trailing slashes do not prevent an otherwise exact URL match. The legacy matches list is deduplicated by Applyly application ID. candidateMatches keeps a separate bounded result for every detected job card so one company history can guide multiple visible jobs without changing the legacy response.
+
+Response:
+
+    {
+      "pageUrl": "https://wellfound.com/jobs/applications",
+      "scannedCandidates": 12,
+      "matchedCandidates": 2,
+      "matches": [
+        {
+          "id": 123,
+          "company": "Example Technologies",
+          "role": "Software Engineer",
+          "status": "Interview",
+          "appliedDate": "2026-08-01",
+          "roleScore": 100,
+          "matchKind": "exact-job",
+          "score": 120,
+          "reasons": ["application-url"],
+          "candidateIndex": 2,
+          "detected": {
+            "company": "Example Technologies",
+            "role": "Software Engineer",
+            "url": "https://wellfound.com/jobs/123456-software-engineer"
+          }
+        }
+      ],
+      "candidateMatches": [
+        {
+          "candidateIndex": 2,
+          "matchCount": 1,
+          "truncated": false,
+          "matches": [
+            {
+              "id": 123,
+              "company": "Example Technologies",
+              "role": "Software Engineer",
+              "status": "Interview",
+              "appliedDate": "2026-08-01",
+              "roleScore": 100,
+              "matchKind": "exact-job",
+              "score": 120,
+              "reasons": ["application-url"],
+              "candidateIndex": 2
+            }
+          ]
+        }
+      ]
+    }
+
+Each candidate result includes at most 25 application records, ordered by match confidence and applied date. matchCount reports the complete count and truncated indicates whether additional records remain in Applyly. matchKind is exact-job, similar-role, or company-history.
+
+- 200: page-match response, including an empty matches array
+- 400: malformed JSON, invalid candidates, no usable candidate, or more than 100 candidates
+- 401: missing or invalid pairing token
+- 500: storage failure
 
 ## Compatibility rules
 
-- Do not rename existing JSON properties without introducing a new API version.
-- Preserve backup `version: 1` imports and exports.
-- Clients should tolerate additional response properties.
-- This is currently a same-origin local application API, not an extension API. CORS, pairing, permissions, and authentication must be designed before extension clients depend on it.
+- Existing endpoint paths and JSON properties must not be renamed without a new API version.
+- Backup version 1 imports and exports must remain supported.
+- New optional application properties are allowed.
+- Clients must tolerate additional response properties.
+- Extension clients must use /api/extension endpoints and must not call same-origin UI mutation endpoints.
+- Extension mutation endpoints require a separately designed, explicitly enabled capability and are not available in API version 1.

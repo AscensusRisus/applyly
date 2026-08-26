@@ -6,12 +6,14 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "predev": "node scripts/migrate-local.mjs",
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "npm run build && node --test tests/rendered-html.test.mjs && node --test tests/api.integration.test.mjs",
+    "test": "npm run build && node --test tests/rendered-html.test.mjs && node --test tests/extension.test.mjs && node --test tests/page-reader.test.mjs && node --test tests/api.integration.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "node scripts/migrate-local.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

@@ -12,6 +12,9 @@ export const applicationsMigration = `CREATE TABLE IF NOT EXISTS applications (
   source TEXT,
   next_step TEXT,
   next_action_date TEXT,
+  company_key TEXT,
+  company_domain TEXT,
+  company_aliases TEXT,
   created_at INTEGER NOT NULL
 )`;
 
@@ -27,9 +30,12 @@ export type ApplicationPayload = {
   company?: string; role?: string; location?: string; status?: string;
   appliedDate?: string; salary?: string; url?: string; notes?: string;
   contactEmail?: string; source?: string; nextStep?: string; nextActionDate?: string;
+  companyDomain?: string | null; companyAliases?: string[] | null;
 };
 
 import { applicationStatuses } from "../../lib/application-options";
+import { normalizeApplicationUrl } from "../../lib/application-url";
+import { inferCompanyDomain, normalizeCompanyAliases, normalizeCompanyDomain, normalizeCompanyName, parseStoredCompanyAliases } from "../../lib/company-identity";
 export { applicationStatuses };
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -53,10 +59,29 @@ export async function ensureApplicationsTable(db: D1Database) {
   await db.prepare("INSERT INTO application_status_history (application_id, status, changed_at, note) SELECT a.id, a.status, a.created_at, 'Imported from existing application' FROM applications a WHERE NOT EXISTS (SELECT 1 FROM application_status_history h WHERE h.application_id = a.id)").run();
 }
 
+type ApplicationRow = Record<string, unknown> & { companyAliases?: string | null };
+
+function mapApplicationRow(row: ApplicationRow) {
+  const company = typeof row.company === "string" ? row.company : "";
+  const url = typeof row.url === "string" ? row.url : null;
+  return {
+    ...row,
+    companyKey: typeof row.companyKey === "string" && row.companyKey ? row.companyKey : normalizeCompanyName(company),
+    companyDomain: typeof row.companyDomain === "string" && row.companyDomain ? row.companyDomain : inferCompanyDomain(url),
+    companyAliases: parseStoredCompanyAliases(row.companyAliases),
+  };
+}
+
+function companyIdentity(payload: ApplicationPayload, existing?: { companyDomain?: string | null; companyAliases?: string | null }) {
+  const aliases = payload.companyAliases === undefined ? parseStoredCompanyAliases(existing?.companyAliases) : normalizeCompanyAliases(payload.companyAliases);
+  const requestedDomain = payload.companyDomain === undefined ? existing?.companyDomain : payload.companyDomain;
+  const companyDomain = normalizeCompanyDomain(requestedDomain) ?? inferCompanyDomain(payload.url);
+  return { companyKey: normalizeCompanyName(payload.company?.trim() ?? ""), companyDomain, companyAliases: aliases };
+}
 export async function listApplications(db: D1Database) {
   await ensureApplicationsTable(db);
-  const result = await db.prepare("SELECT id, company, role, location, status, applied_date as appliedDate, salary, url, notes, contact_email as contactEmail, source, next_step as nextStep, next_action_date as nextActionDate FROM applications ORDER BY applied_date DESC, id DESC").all();
-  return result.results;
+  const result = await db.prepare("SELECT id, company, role, location, status, applied_date as appliedDate, salary, url, notes, contact_email as contactEmail, source, next_step as nextStep, next_action_date as nextActionDate, company_key as companyKey, company_domain as companyDomain, company_aliases as companyAliases FROM applications ORDER BY applied_date DESC, id DESC").all<ApplicationRow>();
+  return result.results.map(mapApplicationRow);
 }
 
 export async function createApplication(db: D1Database, payload: ApplicationPayload) {
@@ -72,16 +97,36 @@ export async function createApplication(db: D1Database, payload: ApplicationPayl
   const nextStep = payload.nextStep?.trim() || null;
   const nextActionDate = payload.nextActionDate || null;
   await ensureApplicationsTable(db);
-  const result = await db.prepare("INSERT INTO applications (company, role, location, status, applied_date, salary, url, notes, contact_email, source, next_step, next_action_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(company, role, location, status, appliedDate, payload.salary?.trim() || null, payload.url?.trim() || null, payload.notes?.trim() || null, contactEmail, source, nextStep, nextActionDate, Date.now()).run();
+  const identity = companyIdentity(payload);
+  const result = await db.prepare("INSERT INTO applications (company, role, location, status, applied_date, salary, url, notes, contact_email, source, next_step, next_action_date, company_key, company_domain, company_aliases, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(company, role, location, status, appliedDate, payload.salary?.trim() || null, payload.url?.trim() || null, payload.notes?.trim() || null, contactEmail, source, nextStep, nextActionDate, identity.companyKey, identity.companyDomain, JSON.stringify(identity.companyAliases), Date.now()).run();
   const id = result.meta.last_row_id;
   await db.prepare("INSERT INTO application_status_history (application_id, status, changed_at, note) VALUES (?, ?, ?, ?)").bind(id, status, Date.now(), "Application created").run();
-  return { id, company, role, location, status, appliedDate, salary: payload.salary?.trim() || null, url: payload.url?.trim() || null, notes: payload.notes?.trim() || null, contactEmail, source, nextStep, nextActionDate };
+  return { id, company, role, location, status, appliedDate, salary: payload.salary?.trim() || null, url: payload.url?.trim() || null, notes: payload.notes?.trim() || null, contactEmail, source, nextStep, nextActionDate, ...identity };
 }
+export async function findDuplicateApplication(db: D1Database, payload: ApplicationPayload) {
+  await ensureApplicationsTable(db);
+  const companyKey = normalizeCompanyName(payload.company?.trim() ?? "");
+  const roleKey = normalizeCompanyName(payload.role?.trim() ?? "");
+  const applicationUrl = normalizeApplicationUrl(payload.url);
+  const applications = await listApplications(db);
+  return applications.find(application => {
+    const storedUrl = normalizeApplicationUrl(typeof application.url === "string" ? application.url : null);
+    if (applicationUrl && storedUrl === applicationUrl) return true;
+    return Boolean(companyKey && roleKey && payload.appliedDate
+      && normalizeCompanyName(String(application.company ?? "")) === companyKey
+      && normalizeCompanyName(String(application.role ?? "")) === roleKey
+      && application.appliedDate === payload.appliedDate);
+  }) ?? null;
+}
+
 
 export async function deleteApplication(db: D1Database, id: string) {
   await ensureApplicationsTable(db);
-  await db.prepare("DELETE FROM application_status_history WHERE application_id = ?").bind(id).run();
-  return db.prepare("DELETE FROM applications WHERE id = ?").bind(id).run();
+  const results = await db.batch([
+    db.prepare("DELETE FROM application_status_history WHERE application_id = ?").bind(id),
+    db.prepare("DELETE FROM applications WHERE id = ?").bind(id),
+  ]);
+  return results[1];
 }
 
 export async function deleteAllApplications(db: D1Database) {
@@ -95,9 +140,11 @@ export async function updateApplicationStatus(db: D1Database, id: string, status
   const current = await db.prepare("SELECT status FROM applications WHERE id = ?").bind(id).first<{status:string}>();
   if (!current) return { meta: { changes: 0 } };
   if (current.status === status) return { meta: { changes: 1 } };
-  const result = await db.prepare("UPDATE applications SET status = ? WHERE id = ?").bind(status, id).run();
-  if (result.meta.changes) await db.prepare("INSERT INTO application_status_history (application_id, status, changed_at, note) VALUES (?, ?, ?, ?)").bind(id, status, Date.now(), "Status updated").run();
-  return result;
+  const results = await db.batch([
+    db.prepare("UPDATE applications SET status = ? WHERE id = ?").bind(status, id),
+    db.prepare("INSERT INTO application_status_history (application_id, status, changed_at, note) SELECT id, ?, ?, ? FROM applications WHERE id = ?").bind(status, Date.now(), "Status updated", id),
+  ]);
+  return results[0];
 }
 
 export async function updateApplicationDetails(db: D1Database, id: string, payload: ApplicationPayload) {
@@ -115,8 +162,15 @@ export async function updateApplicationDetails(db: D1Database, id: string, paylo
   const nextStep = payload.nextStep?.trim() || null;
   const nextActionDate = payload.nextActionDate || null;
   await ensureApplicationsTable(db);
-  const result = await db.prepare("UPDATE applications SET company = ?, role = ?, location = ?, applied_date = ?, salary = ?, url = ?, notes = ?, contact_email = ?, source = ?, next_step = ?, next_action_date = ? WHERE id = ?").bind(company, role, location, appliedDate, salary, url, notes, contactEmail, source, nextStep, nextActionDate, id).run();
-  return { meta: result.meta, application: { id: Number(id), company, role, location, appliedDate, salary, url, notes, contactEmail, source, nextStep, nextActionDate } };
+  const existingIdentity = await db.prepare("SELECT company_domain as companyDomain, company_aliases as companyAliases FROM applications WHERE id = ?").bind(id).first<{companyDomain:string | null; companyAliases:string | null}>();
+  if (!existingIdentity) return { meta: { changes: 0 }, reason: "Application not found" };
+  const identity = companyIdentity({ ...payload, url: url ?? undefined }, existingIdentity);
+  const result = await db.prepare("UPDATE applications SET company = ?, role = ?, location = ?, applied_date = ?, salary = ?, url = ?, notes = ?, contact_email = ?, source = ?, next_step = ?, next_action_date = ?, company_key = ?, company_domain = ?, company_aliases = ? WHERE id = ?").bind(company, role, location, appliedDate, salary, url, notes, contactEmail, source, nextStep, nextActionDate, identity.companyKey, identity.companyDomain, JSON.stringify(identity.companyAliases), id).run();
+  return { meta: result.meta, application: { id: Number(id), company, role, location, appliedDate, salary, url, notes, contactEmail, source, nextStep, nextActionDate, ...identity } };
+}
+export async function applicationExists(db: D1Database, id: string) {
+  await ensureApplicationsTable(db);
+  return Boolean(await db.prepare("SELECT id FROM applications WHERE id = ?").bind(id).first());
 }
 export async function getApplicationHistory(db: D1Database, id: string) {
   await ensureApplicationsTable(db);
@@ -161,7 +215,8 @@ export async function getApplicationAnalytics(db: D1Database, year?: string) {
 
 
 type BackupHistory = { status: string; changedAt: number; note?: string | null };
-type BackupApplication = ApplicationPayload & { id: number; createdAt?: number; history?: BackupHistory[] };
+type BackupApplication = ApplicationPayload & { id: number; companyKey?: string | null; createdAt?: number; history?: BackupHistory[] };
+type BackupApplicationRow = Omit<BackupApplication, "companyAliases"> & { companyAliases?: string | null };
 type BackupPayload = { version: 1; applications: BackupApplication[] };
 const backupStatuses = new Set(applicationStatuses);
 
@@ -171,12 +226,12 @@ const validTimestamp = (value: unknown) => typeof value === "number" && Number.i
 export async function exportApplicationBackup(db: D1Database) {
   await ensureApplicationsTable(db);
   const [applications, history] = await Promise.all([
-    db.prepare("SELECT id, company, role, location, status, applied_date as appliedDate, salary, url, notes, contact_email as contactEmail, source, next_step as nextStep, next_action_date as nextActionDate, created_at as createdAt FROM applications ORDER BY applied_date DESC, id DESC").all<BackupApplication>(),
+    db.prepare("SELECT id, company, role, location, status, applied_date as appliedDate, salary, url, notes, contact_email as contactEmail, source, next_step as nextStep, next_action_date as nextActionDate, company_key as companyKey, company_domain as companyDomain, company_aliases as companyAliases, created_at as createdAt FROM applications ORDER BY applied_date DESC, id DESC").all<BackupApplicationRow>(),
     db.prepare("SELECT application_id as applicationId, status, changed_at as changedAt, note FROM application_status_history ORDER BY application_id ASC, changed_at ASC, id ASC").all<BackupHistory & { applicationId: number }>(),
   ]);
   const histories = new Map<number, BackupHistory[]>();
   for (const entry of history.results) histories.set(entry.applicationId, [...(histories.get(entry.applicationId) ?? []), { status: entry.status, changedAt: entry.changedAt, note: entry.note }]);
-  return { version: 1 as const, exportedAt: new Date().toISOString(), applications: applications.results.map(application => ({ ...application, history: histories.get(application.id) ?? [] })) };
+  return { version: 1 as const, exportedAt: new Date().toISOString(), applications: applications.results.map(application => ({ ...application, companyAliases: parseStoredCompanyAliases(application.companyAliases), history: histories.get(application.id) ?? [] })) };
 }
 
 function validateBackup(input: unknown): BackupPayload {
@@ -204,7 +259,9 @@ function validateBackup(input: unknown): BackupPayload {
     }) : [];
     if (history.some((entry, historyIndex) => historyIndex > 0 && entry.changedAt < history[historyIndex - 1].changedAt)) throw new Error(`Application ${index + 1} has out-of-order history.`);
     if (history.length && history[history.length - 1].status !== status) throw new Error(`Application ${index + 1} has a status that does not match its history.`);
-    return { id: application.id, company, role, location: nullableText(application.location) ?? "Remote", status, appliedDate, salary: nullableText(application.salary), url: nullableText(application.url), notes: nullableText(application.notes), contactEmail: nullableText(application.contactEmail), source: nullableText(application.source), nextStep: nullableText(application.nextStep), nextActionDate: nullableText(application.nextActionDate), createdAt: validTimestamp(application.createdAt) ? application.createdAt : Date.now(), history };
+    const url = nullableText(application.url);
+    const identity = companyIdentity({ company, url: url ?? undefined, companyDomain: nullableText(application.companyDomain), companyAliases: normalizeCompanyAliases(application.companyAliases) });
+    return { id: application.id, company, role, location: nullableText(application.location) ?? "Remote", status, appliedDate, salary: nullableText(application.salary), url, notes: nullableText(application.notes), contactEmail: nullableText(application.contactEmail), source: nullableText(application.source), nextStep: nullableText(application.nextStep), nextActionDate: nullableText(application.nextActionDate), ...identity, createdAt: validTimestamp(application.createdAt) ? application.createdAt : Date.now(), history };
   });
   return { version: 1, applications };
 }
@@ -214,7 +271,7 @@ export async function importApplicationBackup(db: D1Database, input: unknown) {
   await ensureApplicationsTable(db);
   const statements = [db.prepare("DELETE FROM application_status_history"), db.prepare("DELETE FROM applications")];
   for (const application of backup.applications) {
-    statements.push(db.prepare("INSERT INTO applications (id, company, role, location, status, applied_date, salary, url, notes, contact_email, source, next_step, next_action_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(application.id, application.company, application.role, application.location, application.status, application.appliedDate, application.salary, application.url, application.notes, application.contactEmail, application.source, application.nextStep, application.nextActionDate, application.createdAt));
+    statements.push(db.prepare("INSERT INTO applications (id, company, role, location, status, applied_date, salary, url, notes, contact_email, source, next_step, next_action_date, company_key, company_domain, company_aliases, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(application.id, application.company, application.role, application.location, application.status, application.appliedDate, application.salary, application.url, application.notes, application.contactEmail, application.source, application.nextStep, application.nextActionDate, application.companyKey, application.companyDomain, JSON.stringify(application.companyAliases ?? []), application.createdAt));
     const history = application.history?.length ? application.history : [{ status: application.status, changedAt: application.createdAt ?? Date.now(), note: "Imported application" }];
     for (const entry of history) statements.push(db.prepare("INSERT INTO application_status_history (application_id, status, changed_at, note) VALUES (?, ?, ?, ?)").bind(application.id, entry.status, entry.changedAt, entry.note));
   }

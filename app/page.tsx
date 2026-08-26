@@ -13,11 +13,16 @@ const statuses = applicationStatuses;
 type DefaultDateMode = "none" | "today" | "custom";
 type Theme = "default" | "applyly-dark" | "dusk-stone" | "warm-taupe" | "indigo-paper" | "harbor-blue" | "berry-noir" | "greenwood" | "earth-sage";
 const emptyForm = () => ({company:"", role:"", location:"Remote", status:"Applied", appliedDate:"", salary:"", url:"", notes:"", contactEmail:"", source:"", nextStep:"", nextActionDate:""});
+const closedStatuses = new Set(["Rejected", "Withdrawn"]);
 
 function todayIso() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`; }
 function formatTimelineTimestamp(value:number, locale:string) { const date = new Date(value); return `${formatCalendarDate(date, locale)}, ${date.toLocaleTimeString(locale, {hour:"numeric", minute:"2-digit"})}`; }
 function defaultAppliedDate(mode:DefaultDateMode, customDate:string) { return mode === "today" ? todayIso() : mode === "custom" ? customDate : ""; }
 function statusClass(status:string) { return status.toLowerCase().replaceAll(" ", "-"); }
+function needsAttention(application:Application, today:string) {
+  return Boolean(application.nextActionDate && application.nextActionDate <= today && !closedStatuses.has(application.status));
+}
+
 
 function StatusPicker({value, onChange, compact = false}:{value:string; onChange:(value:string)=>void; compact?:boolean}) {
   const [open, setOpen] = useState(false);
@@ -70,6 +75,10 @@ function StatusPicker({value, onChange, compact = false}:{value:string; onChange
   const [dateLocale, setDateLocale] = useState("en-US");
   const [theme, setTheme] = useState<Theme>("default");
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [captureDraft, setCaptureDraft] = useState(false);
+  const [extensionPairing, setExtensionPairing] = useState<{paired:boolean; createdAt:number | null}>({paired:false, createdAt:null});
+  const [extensionToken, setExtensionToken] = useState("");
+  const [pairingBusy, setPairingBusy] = useState(false);
   const [historyFor, setHistoryFor] = useState<Application | null>(null);
   const [detailsFor, setDetailsFor] = useState<Application | null>(null);
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
@@ -88,6 +97,18 @@ function StatusPicker({value, onChange, compact = false}:{value:string; onChange
     const savedCustomDate = window.localStorage.getItem("applyly.defaultCustomDate") ?? "";
     const savedPageSize = Number(window.localStorage.getItem("applyly.pageSize"));
     const savedTheme = window.localStorage.getItem("applyly.theme") as Theme | null;
+    const captureParams = new URLSearchParams(window.location.search);
+    const captureFromExtension = captureParams.get("capture") === "extension";
+    const capturedCompany = (captureParams.get("company") ?? "").trim().slice(0, 300);
+    const capturedRole = (captureParams.get("role") ?? "").trim().slice(0, 500);
+    const capturedUrlValue = (captureParams.get("url") ?? "").trim().slice(0, 2_000);
+    const capturedUrl = /^https?:\/\//i.test(capturedUrlValue) ? capturedUrlValue : "";
+    const capturedSourceValue = (captureParams.get("source") ?? "").trim();
+    const capturedSource = applicationSources.includes(capturedSourceValue as typeof applicationSources[number]) ? capturedSourceValue : "";
+    const hasCaptureDraft = captureFromExtension && Boolean(capturedCompany || capturedRole || capturedUrl);
+    const focusedApplicationId = Number(captureParams.get("application"));
+    const hasFocusedApplication = Number.isInteger(focusedApplicationId) && focusedApplicationId > 0;
+
     if (Number.isInteger(savedPageSize) && savedPageSize >= 1 && savedPageSize <= 500) Promise.resolve().then(() => { setPageSize(savedPageSize); setCustomPageSize(savedPageSize); setCustomRowsMode(![10, 25, 50, 100].includes(savedPageSize)); });
     const browserDateLocale = navigator.language || "en-US";
     const loadedDateMode:DefaultDateMode = savedDateMode === "today" || savedDateMode === "custom" ? savedDateMode : "none";
@@ -98,7 +119,22 @@ function StatusPicker({value, onChange, compact = false}:{value:string; onChange
       setDefaultSource(savedSource); setDefaultDateMode(loadedDateMode); setDefaultCustomDate(savedCustomDate); setDateLocale(browserDateLocale);
       const loadedTheme:Theme = savedTheme === "applyly-dark" || savedTheme === "dusk-stone" || savedTheme === "warm-taupe" || savedTheme === "indigo-paper" || savedTheme === "harbor-blue" || savedTheme === "berry-noir" || savedTheme === "greenwood" || savedTheme === "earth-sage" ? savedTheme : "default";
       setTheme(loadedTheme); document.documentElement.dataset.theme = loadedTheme === "default" ? "" : loadedTheme;
-      setForm(current => current.company || current.role ? current : {...current, location:savedLocation || "Remote", source:savedSource, appliedDate:defaultAppliedDate(loadedDateMode, savedCustomDate)});
+      setForm(current => current.company || current.role ? current : {
+        ...current,
+        company: hasCaptureDraft ? capturedCompany : current.company,
+        role: hasCaptureDraft ? capturedRole : current.role,
+        url: hasCaptureDraft ? capturedUrl : current.url,
+        location:savedLocation || "Remote",
+        source:hasCaptureDraft ? capturedSource : savedSource,
+        appliedDate:defaultAppliedDate(loadedDateMode, savedCustomDate),
+      });
+      if (hasCaptureDraft) {
+        setCaptureDraft(true);
+        requestAnimationFrame(() => document.querySelector<HTMLInputElement>(capturedCompany ? "#role" : "#company")?.focus());
+      }
+      if (hasCaptureDraft || hasFocusedApplication) {
+        window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+      }
       setTodayLabel(now.toLocaleDateString(browserDateLocale, {weekday:"long", year:"numeric", month:"long", day:"numeric"}).toUpperCase());
       setGreeting(now.getHours() < 12 ? "Good morning" : now.getHours() < 18 ? "Good afternoon" : "Good evening");
       setHydrated(true);
@@ -106,7 +142,17 @@ function StatusPicker({value, onChange, compact = false}:{value:string; onChange
     const controller = new AbortController();
     fetch("/api/applications", { signal: controller.signal })
       .then(response => response.ok ? response.json() : Promise.reject(new Error("Unable to load applications")))
-      .then(data => setApps(data.applications ?? []))
+      .then(data => {
+        const loadedApplications = data.applications ?? [];
+        setApps(loadedApplications);
+        if (hasFocusedApplication) {
+          const focused = loadedApplications.find((application:Application) => application.id === focusedApplicationId);
+          if (focused) {
+            setView("applications");
+            setDetailsFor(focused);
+          }
+        }
+      })
       .catch(error => { if (error.name !== "AbortError") setError("Could not load your applications. Please refresh and try again."); })
       .finally(() => setLoading(false));
     return () => controller.abort();
@@ -119,6 +165,15 @@ function StatusPicker({value, onChange, compact = false}:{value:string; onChange
     fetch(analyticsUrl, { signal: controller.signal }).then(response => response.ok ? response.json() : Promise.reject(new Error())).then(data => setAnalytics(data)).catch(error => { if (error.name !== "AbortError") setError("Insights data could not be loaded."); });
     return () => controller.abort();
   }, [view, apps, insightYear]);
+  useEffect(() => {
+    if (view !== "settings") return;
+    const controller = new AbortController();
+    fetch("/api/extension/pairing", { signal: controller.signal })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error()))
+      .then(data => setExtensionPairing({ paired:Boolean(data.paired), createdAt:data.createdAt ?? null }))
+      .catch(error => { if (error.name !== "AbortError") setError("Extension pairing status could not be loaded."); });
+    return () => controller.abort();
+  }, [view]);
 const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
     return apps.filter(app => {
@@ -134,6 +189,9 @@ const visible = useMemo(() => {
   const pagedApplications = visible.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const placeholderRows = totalPages > 1 ? Math.max(0, pageSize - pagedApplications.length) : 0;
   const counts = useMemo(() => statuses.map(status => ({ status, count: apps.filter(app => app.status === status).length })), [apps]);
+  const today = todayIso();
+  const attentionCount = apps.filter(app => needsAttention(app, today)).length;
+  const attentionApplications = apps.filter(app => needsAttention(app, today)).sort((left, right) => String(left.nextActionDate).localeCompare(String(right.nextActionDate)));
   const active = apps.filter(app => !["Rejected", "Withdrawn"].includes(app.status)).length;
   const response = analytics?.responseRate ?? (apps.length ? Math.round((apps.filter(app => ["Contact", "Phone screen", "Interview", "Offer"].includes(app.status)).length / apps.length) * 100) : 0);
 
@@ -159,6 +217,7 @@ const visible = useMemo(() => {
   function resetApplicationForm(location = defaultLocation, source = defaultSource, dateMode = defaultDateMode, customDate = defaultCustomDate) {
     setForm({...emptyForm(), location:location.trim() || "Remote", source, appliedDate:defaultAppliedDate(dateMode, customDate)});
     setError("");
+    setCaptureDraft(false);
   }
 
   async function add(event:FormEvent) {
@@ -169,7 +228,19 @@ const visible = useMemo(() => {
     const submitted = {...form}; const optimistic = {...submitted, id:Date.now()};
     setApps(current => [optimistic, ...current]); resetApplicationForm();
     try {
-      const response = await fetch("/api/applications", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(submitted) });
+      let response = await fetch("/api/applications", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(submitted) });
+      if (response.status === 409) {
+        const conflict = await response.json(); const duplicate = conflict.duplicate;
+        const saveAnyway = window.confirm(duplicate
+          ? `A matching application already exists: ${duplicate.company} - ${duplicate.role} (${duplicate.status}, ${duplicate.appliedDate}). Save another record anyway?`
+          : "A matching application already exists. Save another record anyway?");
+        if (!saveAnyway) {
+          setApps(current => current.filter(app => app.id !== optimistic.id));
+          setForm(submitted);
+          return;
+        }
+        response = await fetch("/api/applications", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...submitted, allowDuplicate:true}) });
+      }
       if (!response.ok) throw new Error("Unable to save application");
       const data = await response.json(); setApps(current => current.map(app => app.id === optimistic.id ? data.application : app));
     } catch { setApps(current => current.filter(app => app.id !== optimistic.id)); setError("The application could not be saved."); }
@@ -235,6 +306,28 @@ const visible = useMemo(() => {
     setSettingsSaved(true); window.setTimeout(() => setSettingsSaved(false), 2400);
   }
 
+  async function createExtensionPairing() {
+    setPairingBusy(true); setExtensionToken("");
+    try {
+      const response = await fetch("/api/extension/pairing", { method:"POST", headers:{"X-Applyly-Pairing":"manage"} });
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      setExtensionPairing({paired:true, createdAt:data.createdAt});
+      setExtensionToken(data.token);
+    } catch { setError("Extension pairing could not be created."); }
+    finally { setPairingBusy(false); }
+  }
+
+  async function revokeExtensionPairing() {
+    if (!window.confirm("Revoke the current browser extension pairing? The extension will lose access immediately.")) return;
+    setPairingBusy(true);
+    try {
+      const response = await fetch("/api/extension/pairing", { method:"DELETE", headers:{"X-Applyly-Pairing":"manage"} });
+      if (!response.ok) throw new Error();
+      setExtensionPairing({paired:false, createdAt:null}); setExtensionToken("");
+    } catch { setError("Extension pairing could not be revoked."); }
+    finally { setPairingBusy(false); }
+  }
   async function clearApplications() {
     if (!apps.length || !window.confirm("Delete every application and its status history? This cannot be undone. Export a JSON backup first if you may need this data later.")) return;
     const previous = apps; setApps([]);
@@ -256,13 +349,15 @@ const visible = useMemo(() => {
       <header className="topbar"><div><p className="eyebrow">{todayLabel}</p><h1>{view === "applications" ? (hydrated ? `${greeting}, ${displayName}.` : "Welcome back.") : view === "insights" ? "Your search at a glance." : view === "data" ? "Keep your data portable." : "Make Applyly yours."}</h1><p className="sub">{view === "applications" ? "Here's the pulse of your job search." : view === "insights" ? "Patterns and progress across your applications." : view === "data" ? "Export a backup or restore your application history." : "Update your preferences and manage your data."}</p></div></header>
       {error && <div className="notice error">{error}<button onClick={() => setError("")} aria-label="Dismiss">Dismiss</button></div>}
       {view === "applications" && <>
-        <section className="stats"><div className="stat"><div className="stat-label">Total applications</div><strong>{apps.length}</strong><span className="trend">All time</span></div><div className="stat"><div className="stat-label">Active pipeline</div><strong>{active}</strong><span className="trend">Keep the momentum</span></div><div className="stat"><div className="stat-label">Response rate</div><strong>{response}%</strong><span className="trend">Reached a response stage</span></div><div className="stat"><div className="stat-label">Interviews</div><strong>{apps.filter(app => app.status === "Interview").length}</strong><span className="trend">In your pipeline</span></div></section>
-        <div className="grid"><section className="card application-table-card"><div className="card-head"><div><h2>Application pipeline</h2><p className="sub">Move each opportunity forward.</p></div><div className="filter"><input className="search" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search company, role, location, date, source or salary..."/><select aria-label="Filter by status" value={filter} onChange={event => { setFilter(event.target.value); setPage(1); }}><option>All applications</option>{statuses.map(status => <option key={status}>{status}</option>)}</select><select aria-label="Filter by source" value={sourceFilter} onChange={event => { setSourceFilter(event.target.value); setPage(1); }}><option>All sources</option>{applicationSources.map(source => <option key={source}>{source}</option>)}</select><select aria-label="Filter by salary" value={salaryFilter} onChange={event => { setSalaryFilter(event.target.value); setPage(1); }}><option>All salaries</option><option>Has salary</option><option>No salary</option></select></div></div><div className="pipeline">{counts.map(({status,count}) => <div className={`stage ${statusClass(status)}`} key={status}><span className="dot"/><label>{status}</label><strong>{count}</strong></div>)}</div><div className="table-wrap"><table className="table"><thead><tr><th>ROLE & COMPANY</th><th>STATUS</th><th>APPLIED</th><th>LOCATION</th><th>ACTIONS</th></tr></thead><tbody>{loading ? <tr><td colSpan={5}><div className="empty">Loading applications...</div></td></tr> : visible.length ? <>{pagedApplications.map(app => <tr key={app.id}><td><div className="company">{app.url ? <a className="application-link" href={app.url} target="_blank" rel="noreferrer">{app.company} <span className="url-icon" aria-hidden="true"/></a> : app.company}</div><div className="role">{app.role}</div></td><td><StatusPicker value={app.status} onChange={status => changeStatus(app.id, status)} compact /></td><td>{formatStoredDate(app.appliedDate, dateLocale)}</td><td>{app.location}</td><td className="actions-cell"><button className="row-action" title="View application details" onClick={() => openDetails(app)}>Details</button><button className="row-action history-action" title="View status history" onClick={() => openHistory(app)}>History</button><button className="row-action delete-action" title="Delete application" onClick={() => removeApplication(app.id)}>Delete</button></td></tr>)}{Array.from({length: placeholderRows}, (_, index) => <tr className="table-placeholder" aria-hidden="true" key={`placeholder-${index}`}><td colSpan={5}><div className="company">&nbsp;</div><div className="role">&nbsp;</div></td></tr>)}</> : <tr><td colSpan={5}><div className="empty">No applications match this view.</div></td></tr>}</tbody></table></div>{!loading && visible.length > 0 && <div className="table-pagination" ref={paginationRef}><span>{visible.length} result{visible.length === 1 ? "" : "s"} · Page {currentPage} of {totalPages}</span><div><label>Rows <select value={customRowsMode ? "custom" : pageSize} onChange={event => event.target.value === "custom" ? (setCustomRowsMode(true), setCustomPageSize(pageSize)) : handlePageSizeChange(Number(event.target.value))}>{[10,25,50,100].map(size => <option key={size} value={size}>{size}</option>)}<option value="custom">Custom</option></select>{customRowsMode && <input className="rows-custom-input" aria-label="Custom rows per page" type="number" min="1" max="500" value={customPageSize} onChange={event => setCustomPageSize(Number(event.target.value))} onBlur={applyCustomPageSize} onKeyDown={event => { if (event.key === "Enter") applyCustomPageSize(); }}/>}</label><button className="secondary-button" type="button" disabled={currentPage === 1} onClick={() => setPage(current => Math.max(1, current - 1))}>Previous</button><button className="secondary-button" type="button" disabled={currentPage === totalPages} onClick={() => setPage(current => Math.min(totalPages, current + 1))}>Next</button></div></div>}</section><aside className="card side-card"><div className="side-card-head"><h2>Add an application</h2><button type="button" className="form-reset-button" onClick={() => resetApplicationForm()} aria-label="Reset form to saved defaults" title="Reset form to saved defaults"><svg className="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A8 8 0 1 0 19.73 14H17.65a6 6 0 1 1-1.41-6.24L13 11h7V4z"/></svg></button></div><div className="tip"><strong>Small steps, steady progress.</strong>Capture the details while they&apos;re fresh, then keep your pipeline moving.</div><form onSubmit={add}><div className="field"><label htmlFor="company">COMPANY</label><input id="company" placeholder="e.g. Stripe" value={form.company} onChange={event => setForm({...form, company:event.target.value})}/></div><div className="field"><label htmlFor="role">ROLE</label><input id="role" placeholder="e.g. Product Designer" value={form.role} onChange={event => setForm({...form, role:event.target.value})}/></div><div className="field"><label htmlFor="status">STATUS</label><StatusPicker value={form.status} onChange={status => setForm({...form, status})} /></div><div className="field"><div className="date-label"><label htmlFor="appliedDate">APPLIED DATE</label><button type="button" className="today-button" onClick={() => setForm({...form, appliedDate:todayIso()})}>Today</button></div><input id="appliedDate" type="date" value={form.appliedDate} onChange={event => setForm({...form, appliedDate:event.target.value})} required/></div><div className="field"><label htmlFor="location">LOCATION</label><input id="location" placeholder="Remote or city" value={form.location} onChange={event => setForm({...form, location:event.target.value})}/></div><div className="field"><label htmlFor="salary">SALARY <span style={{fontWeight:400}}>(optional)</span></label><input id="salary" placeholder="e.g. €60,000 or $80/hr" value={form.salary} onChange={event => setForm({...form, salary:event.target.value})}/></div>
+        {captureDraft && <div className="notice capture-notice">Job details were captured from your browser. Review the fields and choose the applied date before saving.<button onClick={() => resetApplicationForm()} aria-label="Discard captured draft">Discard</button></div>}
+        <section className="stats"><div className="stat"><div className="stat-label">Total applications</div><strong>{apps.length}</strong><span className="trend">All time</span></div><div className="stat"><div className="stat-label">Active pipeline</div><strong>{active}</strong><span className="trend">Keep the momentum</span></div><div className="stat"><div className="stat-label">Response rate</div><strong>{response}%</strong><span className="trend">Reached a response stage</span></div><div className="stat"><div className="stat-label">Needs attention</div><strong>{attentionCount}</strong><span className="trend">Due today or overdue</span></div></section>
+        {attentionApplications.length > 0 && <section className="card attention-queue"><div><p className="eyebrow">FOLLOW-UP QUEUE</p><h2>Act on what is due</h2><p className="sub">{attentionApplications.length} active application{attentionApplications.length === 1 ? "" : "s"} need attention today.</p></div><div className="attention-list">{attentionApplications.slice(0, 6).map(app => <button type="button" key={app.id} onClick={() => openDetails(app)}><span><strong>{app.company}</strong><small>{app.role}</small></span><span><strong>{app.nextStep || "Review next action"}</strong><small>Due {formatStoredDate(app.nextActionDate ?? "", dateLocale)}</small></span></button>)}</div></section>}
+        <div className="grid"><section className="card application-table-card"><div className="card-head"><div><h2>Application pipeline</h2><p className="sub">Move each opportunity forward.</p></div><div className="filter"><input className="search" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search company, role, location, date, source or salary..."/><select aria-label="Filter by status" value={filter} onChange={event => { setFilter(event.target.value); setPage(1); }}><option>All applications</option>{statuses.map(status => <option key={status}>{status}</option>)}</select><select aria-label="Filter by source" value={sourceFilter} onChange={event => { setSourceFilter(event.target.value); setPage(1); }}><option>All sources</option>{applicationSources.map(source => <option key={source}>{source}</option>)}</select><select aria-label="Filter by salary" value={salaryFilter} onChange={event => { setSalaryFilter(event.target.value); setPage(1); }}><option>All salaries</option><option>Has salary</option><option>No salary</option></select></div></div><div className="pipeline">{counts.map(({status,count}) => <div className={`stage ${statusClass(status)}`} key={status}><span className="dot"/><label>{status}</label><strong>{count}</strong></div>)}</div><div className="table-wrap"><table className="table"><thead><tr><th>ROLE & COMPANY</th><th>STATUS</th><th>APPLIED</th><th>LOCATION</th><th>ACTIONS</th></tr></thead><tbody>{loading ? <tr><td colSpan={5}><div className="empty">Loading applications...</div></td></tr> : visible.length ? <>{pagedApplications.map(app => <tr key={app.id}><td><div className="company">{app.url ? <a className="application-link" href={app.url} target="_blank" rel="noreferrer">{app.company} <span className="url-icon" aria-hidden="true"/></a> : app.company}</div><div className="role">{app.role}</div></td><td><StatusPicker value={app.status} onChange={status => changeStatus(app.id, status)} compact /></td><td>{formatStoredDate(app.appliedDate, dateLocale)}</td><td>{app.location}</td><td className="actions-cell"><button className="row-action" title="View application details" onClick={() => openDetails(app)}>Details</button><button className="row-action history-action" title="View status history" onClick={() => openHistory(app)}>History</button><button className="row-action delete-action" title="Delete application" onClick={() => removeApplication(app.id)}>Delete</button></td></tr>)}{Array.from({length: placeholderRows}, (_, index) => <tr className="table-placeholder" aria-hidden="true" key={`placeholder-${index}`}><td colSpan={5}><div className="company">&nbsp;</div><div className="role">&nbsp;</div></td></tr>)}</> : <tr><td colSpan={5}><div className="empty">No applications match this view.</div></td></tr>}</tbody></table></div>{!loading && visible.length > 0 && <div className="table-pagination" ref={paginationRef}><span>{visible.length} result{visible.length === 1 ? "" : "s"} Â· Page {currentPage} of {totalPages}</span><div><label>Rows <select value={customRowsMode ? "custom" : pageSize} onChange={event => event.target.value === "custom" ? (setCustomRowsMode(true), setCustomPageSize(pageSize)) : handlePageSizeChange(Number(event.target.value))}>{[10,25,50,100].map(size => <option key={size} value={size}>{size}</option>)}<option value="custom">Custom</option></select>{customRowsMode && <input className="rows-custom-input" aria-label="Custom rows per page" type="number" min="1" max="500" value={customPageSize} onChange={event => setCustomPageSize(Number(event.target.value))} onBlur={applyCustomPageSize} onKeyDown={event => { if (event.key === "Enter") applyCustomPageSize(); }}/>}</label><button className="secondary-button" type="button" disabled={currentPage === 1} onClick={() => setPage(current => Math.max(1, current - 1))}>Previous</button><button className="secondary-button" type="button" disabled={currentPage === totalPages} onClick={() => setPage(current => Math.min(totalPages, current + 1))}>Next</button></div></div>}</section><aside className="card side-card"><div className="side-card-head"><h2>Add an application</h2><button type="button" className="form-reset-button" onClick={() => resetApplicationForm()} aria-label="Reset form to saved defaults" title="Reset form to saved defaults"><svg className="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A8 8 0 1 0 19.73 14H17.65a6 6 0 1 1-1.41-6.24L13 11h7V4z"/></svg></button></div><div className="tip"><strong>Small steps, steady progress.</strong>Capture the details while they&apos;re fresh, then keep your pipeline moving.</div><form onSubmit={add}><div className="field"><label htmlFor="company">COMPANY</label><input id="company" placeholder="e.g. Stripe" value={form.company} onChange={event => setForm({...form, company:event.target.value})}/></div><div className="field"><label htmlFor="role">ROLE</label><input id="role" placeholder="e.g. Product Designer" value={form.role} onChange={event => setForm({...form, role:event.target.value})}/></div><div className="field"><label htmlFor="status">STATUS</label><StatusPicker value={form.status} onChange={status => setForm({...form, status})} /></div><div className="field"><div className="date-label"><label htmlFor="appliedDate">APPLIED DATE</label><button type="button" className="today-button" onClick={() => setForm({...form, appliedDate:todayIso()})}>Today</button></div><input id="appliedDate" type="date" value={form.appliedDate} onChange={event => setForm({...form, appliedDate:event.target.value})} required/></div><div className="field"><label htmlFor="location">LOCATION</label><input id="location" placeholder="Remote or city" value={form.location} onChange={event => setForm({...form, location:event.target.value})}/></div><div className="field"><label htmlFor="salary">SALARY <span style={{fontWeight:400}}>(optional)</span></label><input id="salary" placeholder="e.g. â‚¬60,000 or $80/hr" value={form.salary} onChange={event => setForm({...form, salary:event.target.value})}/></div>
 <div className="field"><label htmlFor="contactEmail">CONTACT EMAIL</label><input id="contactEmail" type="email" placeholder="recruiter@company.com" value={form.contactEmail} onChange={event => setForm({...form, contactEmail:event.target.value})}/></div><div className="field"><label htmlFor="source">SOURCE</label><select id="source" value={form.source} onChange={event => setForm({...form, source:event.target.value})}><option value="">Select source</option>{applicationSources.map(source => <option key={source}>{source}</option>)}</select></div><div className="field"><label htmlFor="nextStep">NEXT STEP</label><input id="nextStep" placeholder="e.g. Complete take-home test" value={form.nextStep} onChange={event => setForm({...form, nextStep:event.target.value})}/></div><div className="field"><label htmlFor="nextActionDate">NEXT ACTION DATE</label><input id="nextActionDate" type="date" value={form.nextActionDate} onChange={event => setForm({...form, nextActionDate:event.target.value})}/></div><div className="field"><label htmlFor="url">APPLICATION LINK</label><input id="url" type="url" placeholder="https://company.com/jobs/..." value={form.url} onChange={event => setForm({...form, url:event.target.value})}/></div><div className="field"><label htmlFor="notes">NOTES <span style={{fontWeight:400}}>(optional)</span></label><textarea id="notes" placeholder="Next step, contact, or a reminder..." value={form.notes} onChange={event => setForm({...form, notes:event.target.value})}/></div><button className="primary full" disabled={saving}>{saving ? "Saving..." : "Save application"}</button></form></aside></div>
       </>}
       {view === "insights" && <InsightsPanel apps={apps} analytics={analytics} selectedYear={insightYear} onSelectYear={setInsightYear} dateLocale={dateLocale}/>}
       {view === "data" && <DataTransferPanel applicationsCount={apps.length} onImported={applications => setApps(applications)} onClear={clearApplications}/>}
-      {view === "settings" && <section className="settings-layout"><form className="card settings-card" onSubmit={saveSettings}><div className="card-head"><div><h2>Preferences</h2><p className="sub">These settings are stored in this browser.</p></div></div><div className="settings-body"><div className="field"><label htmlFor="displayName">YOUR NAME</label><input id="displayName" value={displayName} onChange={event => setDisplayName(event.target.value)} placeholder="Alex"/></div><div className="field"><label htmlFor="defaultLocation">DEFAULT LOCATION</label><input id="defaultLocation" value={defaultLocation} onChange={event => setDefaultLocation(event.target.value)} placeholder="Remote"/></div><div className="field"><label htmlFor="theme">THEME</label><select id="theme" value={theme} onChange={event => selectTheme(event.target.value as Theme)}><option value="default">Applyly Light</option><option value="applyly-dark">Applyly Dark</option><option value="dusk-stone">Dusk &amp; Stone</option><option value="warm-taupe">Warm Taupe</option><option value="indigo-paper">Indigo Paper</option><option value="harbor-blue">Harbor Blue</option><option value="berry-noir">Berry Noir</option><option value="greenwood">Greenwood</option><option value="earth-sage">Earth &amp; Sage</option></select><span className="theme-help">Choose a visual theme. Your applications and data stay unchanged.</span></div><div className="field"><label htmlFor="defaultSource">DEFAULT SOURCE</label><select id="defaultSource" value={defaultSource} onChange={event => setDefaultSource(event.target.value)}><option value="">No default</option>{applicationSources.map(source => <option key={source}>{source}</option>)}</select></div><div className="field"><label htmlFor="defaultDateMode">DEFAULT APPLIED DATE</label><select id="defaultDateMode" value={defaultDateMode} onChange={event => setDefaultDateMode(event.target.value as DefaultDateMode)}><option value="none">None (leave blank)</option><option value="today">Today (device-local)</option><option value="custom">A specific date</option></select></div>{defaultDateMode === "custom" && <div className="field"><label htmlFor="defaultCustomDate">DEFAULT DATE</label><input id="defaultCustomDate" type="date" value={defaultCustomDate} onChange={event => setDefaultCustomDate(event.target.value)} required/></div>}<button className="primary" type="submit">Save preferences</button>{settingsSaved && <div className="notice success">Preferences saved.</div>}</div></form></section>}
+      {view === "settings" && <section className="settings-layout"><form className="card settings-card" onSubmit={saveSettings}><div className="card-head"><div><h2>Preferences</h2><p className="sub">These settings are stored in this browser.</p></div></div><div className="settings-body"><div className="field"><label htmlFor="displayName">YOUR NAME</label><input id="displayName" value={displayName} onChange={event => setDisplayName(event.target.value)} placeholder="Alex"/></div><div className="field"><label htmlFor="defaultLocation">DEFAULT LOCATION</label><input id="defaultLocation" value={defaultLocation} onChange={event => setDefaultLocation(event.target.value)} placeholder="Remote"/></div><div className="field"><label htmlFor="theme">THEME</label><select id="theme" value={theme} onChange={event => selectTheme(event.target.value as Theme)}><option value="default">Applyly Light</option><option value="applyly-dark">Applyly Dark</option><option value="dusk-stone">Dusk &amp; Stone</option><option value="warm-taupe">Warm Taupe</option><option value="indigo-paper">Indigo Paper</option><option value="harbor-blue">Harbor Blue</option><option value="berry-noir">Berry Noir</option><option value="greenwood">Greenwood</option><option value="earth-sage">Earth &amp; Sage</option></select><span className="theme-help">Choose a visual theme. Your applications and data stay unchanged.</span></div><div className="field"><label htmlFor="defaultSource">DEFAULT SOURCE</label><select id="defaultSource" value={defaultSource} onChange={event => setDefaultSource(event.target.value)}><option value="">No default</option>{applicationSources.map(source => <option key={source}>{source}</option>)}</select></div><div className="field"><label htmlFor="defaultDateMode">DEFAULT APPLIED DATE</label><select id="defaultDateMode" value={defaultDateMode} onChange={event => setDefaultDateMode(event.target.value as DefaultDateMode)}><option value="none">None (leave blank)</option><option value="today">Today (device-local)</option><option value="custom">A specific date</option></select></div>{defaultDateMode === "custom" && <div className="field"><label htmlFor="defaultCustomDate">DEFAULT DATE</label><input id="defaultCustomDate" type="date" value={defaultCustomDate} onChange={event => setDefaultCustomDate(event.target.value)} required/></div>}<button className="primary" type="submit">Save preferences</button>{settingsSaved && <div className="notice success">Preferences saved.</div>}</div></form><section className="card settings-card extension-access-card"><div className="card-head"><div><h2>Browser extension access</h2><p className="sub">Pair a local extension without exposing your applications remotely.</p></div></div><div className="settings-body"><p className="extension-access-status"><span className={extensionPairing.paired ? "paired" : ""}/><strong>{extensionPairing.paired ? "Paired" : "Not paired"}</strong>{extensionPairing.createdAt ? <small>Created {formatTimelineTimestamp(extensionPairing.createdAt, dateLocale)}</small> : null}</p><p className="sub">Pairing enables the read-only company matching API. Extension mutations remain disabled.</p>{extensionToken && <div className="pairing-token"><label htmlFor="extensionToken">PAIRING TOKEN</label><textarea id="extensionToken" readOnly value={extensionToken}/><div className="notice success">Copy this token now. Applyly stores only its hash.</div><button type="button" className="secondary-button" onClick={() => navigator.clipboard.writeText(extensionToken)}>Copy token</button></div>}<div className="extension-access-actions">{extensionPairing.paired ? <button type="button" className="danger-button" disabled={pairingBusy} onClick={revokeExtensionPairing}>Revoke pairing</button> : <button type="button" className="primary" disabled={pairingBusy} onClick={createExtensionPairing}>{pairingBusy ? "Creating..." : "Create pairing token"}</button>}</div></div></section></section>}
       {detailsFor && <ApplicationDetailsModal dateLocale={dateLocale} application={detailsFor} onClose={() => setDetailsFor(null)} onSaved={updated => { setApps(current => current.map(app => app.id === updated.id ? updated : app)); setDetailsFor(updated); }}/>}
       {historyFor && <div className="modal-backdrop" onClick={() => setHistoryFor(null)}><section className="history-modal" role="dialog" aria-modal="true" aria-labelledby="history-title" onClick={event => event.stopPropagation()}><div className="modal-head"><div><p className="eyebrow">STATUS TIMELINE</p><h2 id="history-title">{historyFor.company}</h2><p className="sub">{historyFor.role}</p></div><button className="modal-close" onClick={() => setHistoryFor(null)} aria-label="Close">Close</button></div><div className="timeline">{historyEntries.length ? historyEntries.map((entry, index) => <div className="timeline-item" key={entry.id}><span className={`timeline-dot ${statusClass(entry.status)}`}/><div><strong>{entry.status}</strong><p>{entry.note ?? "Status updated"}</p>{index > 0 && <button className="timeline-undo" onClick={() => undoHistory(entry)}>Undo this change</button>}</div><time>{formatTimelineTimestamp(entry.changedAt, dateLocale)}</time></div>) : <div className="empty">Loading status history...</div>}</div></section></div>}    </main>
   </div>;

@@ -8,9 +8,43 @@ const read = (path) => readFile(new URL(path, root), "utf8");
 test("D1 local development uses persistent state and the Drizzle migration directory", async () => {
   const vite = await read("vite.config.ts");
   assert.match(vite, /migrations_dir:\s*["']\.\/drizzle["']/);
-  assert.match(vite, /persistState:\s*\{\s*path:\s*["']\.wrangler\/state["']/);
+  assert.match(vite, /APPLYLY_PERSIST_STATE_PATH/);
+  assert.match(vite, /APPLYLY_PERSIST_STATE_PATH \?\? ["']\.wrangler\/state["']/);
+  assert.match(vite, /persistState:\s*\{\s*path:\s*persistStatePath/);
 });
 
+test("extension API is versioned, paired, read-only, and company-aware", async () => {
+  const [health, pairing, match, pageMatch, matching, security, identity, migration, page] = await Promise.all([
+    read("app/api/health/route.ts"),
+    read("app/api/extension/pairing/route.ts"),
+    read("app/api/extension/match/route.ts"),
+    read("app/api/extension/page-match/route.ts"),
+    read("app/api/extension/matching.ts"),
+    read("app/api/extension/security.ts"),
+    read("app/lib/company-identity.ts"),
+    read("drizzle/0003_striped_rachel_grey.sql"),
+    read("app/page.tsx"),
+  ]);
+  assert.match(health, /apiVersion: 1/);
+  assert.match(health, /backupVersion: 1/);
+  assert.match(health, /mutationsEnabled: false/);
+  assert.match(pairing, /isLocalPairingManagementRequest/);
+  assert.match(security, /X-Applyly-Pairing/);
+  assert.match(match, /authorizeExtensionRequest/);
+  assert.match(match, /findExtensionMatches/);
+  assert.match(pageMatch, /authorizeExtensionRequest/);
+  assert.match(pageMatch, /maximumCandidates = 100/);
+  assert.match(matching, /companyNameSimilarity/);
+  assert.match(matching, /normalizeApplicationUrl/);
+  assert.match(matching, /application-url/);
+  assert.match(health, /page-match/);
+  assert.match(security, /SHA-256/);
+  assert.match(identity, /normalizeCompanyName/);
+  assert.match(migration, /extension_pairings/);
+  assert.match(migration, /company_domain/);
+  assert.match(page, /Create pairing token/);
+  assert.match(page, /Revoke pairing/);
+});
 test("applications migration contains the complete persistence schema", async () => {
   const migration = await read("drizzle/0000_thankful_virginia_dare.sql");
   for (const column of ["company", "role", "location", "status", "applied_date", "salary", "url", "notes", "created_at"]) {
@@ -203,4 +237,24 @@ test("Contact and Withdrawn are shared API-supported statuses", async () => {
     assert.match(insights, new RegExp(status));
     assert.match(contract, new RegExp(status));
   }
+});
+
+test("capture review, duplicate protection, and follow-up attention are explicit product contracts", async () => {
+  const [page, route, storage, urlNormalizer] = await Promise.all([
+    read("app/page.tsx"),
+    read("app/api/applications/route.ts"),
+    read("app/api/applications/storage.ts"),
+    read("app/lib/application-url.ts"),
+  ]);
+  assert.match(page, /captureFromExtension/);
+  assert.match(page, /Review the fields and choose the applied date/);
+  assert.match(page, /allowDuplicate:true/);
+  assert.match(page, /Needs attention/);
+  assert.match(page, /needsAttention/);
+  assert.match(route, /DUPLICATE_APPLICATION/);
+  assert.match(route, /status: 409/);
+  assert.match(storage, /findDuplicateApplication/);
+  assert.match(storage, /db\.batch/);
+  assert.match(urlNormalizer, /utm_source/);
+  assert.match(urlNormalizer, /linkedin\.com/);
 });

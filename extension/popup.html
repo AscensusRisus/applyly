@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Applyly Companion</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="popup-shell">
+      <header class="brand-row">
+        <div>
+          <p class="eyebrow">LOCAL COMPANION</p>
+          <h1>apply<span>ly</span></h1>
+        </div>
+        <span id="connectionBadge" class="connection-badge" data-state="idle">Not checked</span>
+      </header>
+
+      <section id="notice" class="notice" role="status" aria-live="polite" hidden></section>
+      <section class="card guide-card" aria-labelledby="guideTitle">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">JOB SEARCH GUIDE</p>
+            <h2 id="guideTitle">Guide this site</h2>
+          </div>
+          <span id="guideState" class="guide-state" data-state="off">Off</span>
+        </div>
+        <p class="supporting-copy">When enabled, Applyly marks familiar jobs as feeds load, refresh, paginate, or update.</p>
+        <div class="guide-action-row">
+          <span id="guideSite" class="guide-site">Checking current site...</span>
+          <button id="guideButton" class="secondary-button" type="button" disabled>Enable</button>
+        </div>
+        <p class="privacy-note">Access is granted only for this site and can be removed here at any time.</p>
+      </section>
+
+      <section class="card scan-card" aria-labelledby="scanTitle">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">CURRENT PAGE</p>
+            <h2 id="scanTitle">Check application history</h2>
+          </div>
+          <button id="scanButton" class="primary-button" type="button">Scan page</button>
+        </div>
+        <p class="supporting-copy">Use a one-time scan to inspect detected jobs and local history without enabling ongoing guidance.</p>
+
+        <form id="matchForm" class="match-form" hidden>
+          <label for="companyInput">Detected company</label>
+          <div class="inline-control">
+            <input id="companyInput" name="company" autocomplete="organization" required>
+            <button class="secondary-button" type="submit">Check history</button>
+          </div>
+        </form>
+        <p id="pageSummary" class="page-summary" hidden></p>
+      </section>
+
+      <section id="resultsSection" class="card results-card" aria-labelledby="resultsTitle" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">LOCAL HISTORY</p>
+            <h2 id="resultsTitle">Matches in Applyly</h2>
+          </div>
+          <span id="matchCount" class="match-count"></span>
+        </div>
+        <div id="resultsList" class="results-list"></div>
+      </section>
+
+      <button id="reviewCaptureButton" class="primary-button capture-button" type="button" hidden>Review captured job in Applyly</button>
+      <details id="connectionPanel" class="card connection-card">
+        <summary>Connection settings</summary>
+        <form id="connectionForm">
+          <label for="endpointInput">Applyly address</label>
+          <input id="endpointInput" name="endpoint" type="url" value="http://localhost:3000" spellcheck="false" required>
+          <label for="tokenInput">Pairing token</label>
+          <input id="tokenInput" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste the token from Applyly Settings" required>
+          <div class="connection-actions">
+            <button class="secondary-button" type="submit">Save and connect</button>
+            <button id="forgetButton" class="text-button danger" type="button">Forget token</button>
+          </div>
+          <p class="privacy-note">Only this address and token are stored in this browser profile. Application records remain in local D1.</p>
+        </form>
+      </details>
+
+      <footer>
+        <button id="openApplylyButton" class="text-button" type="button">Open Applyly</button>
+        <span>No telemetry - Read only</span>
+      </footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

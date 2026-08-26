@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Applyly Companion",
+  "version": "0.4.0",
+  "description": "Guide job searches with private, local Applyly application history.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAl93NRc6UO2SVsO94fS+KkyeAglpMtMHWHahjIFVFvBwgbLOnNCfQsNcnsGEVJm9qDNchL4cvVXPrOJggGi6OHF0swnjLIJGN90oNVpHXZXTLubWfqsCNKbGvlPejiHLQaBssgHGMF3/GEV13fx/lWXG5JGw2iTI8HVHhhrnbxVcPUfxmAtXblVsu12xFWdS/ea1p642QPdPWK6nATBDq2Ncbk5nMIBgWraTtc64a+aDMczTob+DpLbKIEDODONaRk3t7ex5/1fpEOgqDryYadXyQk7xy1mP9/4RNZsSz8GWjqFwcV+TDjLXD0ar7S/B0JeZGrxNFDwD3zkRYvJcCxwIDAQAB",
+  "minimum_chrome_version": "102",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Check with Applyly",
+    "default_popup": "popup.html"
+  }
+}

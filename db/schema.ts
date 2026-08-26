@@ -1,4 +1,4 @@
-﻿import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const applications = sqliteTable("applications", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -14,6 +14,9 @@ export const applications = sqliteTable("applications", {
   source: text("source"),
   nextStep: text("next_step"),
   nextActionDate: text("next_action_date"),
+  companyKey: text("company_key"),
+  companyDomain: text("company_domain"),
+  companyAliases: text("company_aliases"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 });
 
@@ -25,3 +28,8 @@ export const applicationStatusHistory = sqliteTable("application_status_history"
   note: text("note"),
 });
 
+export const extensionPairings = sqliteTable("extension_pairings", {
+  id: integer("id").primaryKey(),
+  tokenHash: text("token_hash").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+});
