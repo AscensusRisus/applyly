@@ -165,6 +165,17 @@ test("isolated API persists across restart and enforces extension contracts", as
     assert.equal(history.history.at(-1).status, "Interview");
     assert.equal(history.history.length, 2);
 
+    const expiredResponse = await fetch(base + "/api/applications/" + createdId, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "Expired" }),
+    });
+    assert.equal(expiredResponse.status, 200);
+    const expiredHistoryResponse = await fetch(base + "/api/applications/" + createdId);
+    const expiredHistory = await expiredHistoryResponse.json();
+    assert.equal(expiredHistory.history.at(-1).status, "Expired");
+    assert.equal(expiredHistory.history.length, 3);
+
     const pairingResponse = await fetch(base + "/api/extension/pairing", {
       method: "POST",
       headers: { "X-Applyly-Pairing": "manage" },

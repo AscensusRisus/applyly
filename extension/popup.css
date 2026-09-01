@@ -65,6 +65,7 @@ input:focus { border-color: #88ad45; box-shadow: 0 0 0 3px rgb(168 223 69 / 18%)
 .status-pill[data-status="Offer"] { color: #28744d; background: #def4e7; }
 .status-pill[data-status="Rejected"] { color: #a84848; background: #fbe5e5; }
 .status-pill[data-status="Withdrawn"] { color: #58615d; background: #e6eae7; }
+.status-pill[data-status="Expired"] { color: #9a6b22; background: #fff1d6; }
 .empty-results { border: 1px dashed #d5dbd7; border-radius: 10px; padding: 18px; color: var(--muted); text-align: center; font-size: 12px; }
 .connection-card { padding: 0 14px 14px; }
 .connection-card summary { cursor: pointer; padding: 13px 0; font-size: 12px; font-weight: 700; }

@@ -23,7 +23,7 @@ Application create and detail-update payload:
       "company": "string",
       "role": "string",
       "location": "string",
-      "status": "Applied | Contact | Phone screen | Assessment | Interview | Offer | Rejected | Withdrawn",
+      "status": "Applied | Contact | Phone screen | Assessment | Interview | Offer | Rejected | Withdrawn | Expired",
       "appliedDate": "YYYY-MM-DD",
       "salary": "string | null",
       "url": "string | null",
@@ -198,7 +198,7 @@ Returns application health and the versioned client handshake.
       "version": "0.2.0",
       "apiVersion": 1,
       "backupVersion": 1,
-      "statuses": ["Applied", "Contact", "Phone screen", "Assessment", "Interview", "Offer", "Rejected", "Withdrawn"],
+      "statuses": ["Applied", "Contact", "Phone screen", "Assessment", "Interview", "Offer", "Rejected", "Withdrawn", "Expired"],
       "capabilities": ["applications", "status-history", "analytics", "backup", "bulk-delete", "extension-company-match", "extension-page-match"],
       "extension": {
         "supported": true,

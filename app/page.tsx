@@ -13,7 +13,7 @@ const statuses = applicationStatuses;
 type DefaultDateMode = "none" | "today" | "custom";
 type Theme = "default" | "applyly-dark" | "dusk-stone" | "warm-taupe" | "indigo-paper" | "harbor-blue" | "berry-noir" | "greenwood" | "earth-sage";
 const emptyForm = () => ({company:"", role:"", location:"Remote", status:"Applied", appliedDate:"", salary:"", url:"", notes:"", contactEmail:"", source:"", nextStep:"", nextActionDate:""});
-const closedStatuses = new Set(["Rejected", "Withdrawn"]);
+const closedStatuses = new Set(["Rejected", "Withdrawn", "Expired"]);
 
 function todayIso() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`; }
 function formatTimelineTimestamp(value:number, locale:string) { const date = new Date(value); return `${formatCalendarDate(date, locale)}, ${date.toLocaleTimeString(locale, {hour:"numeric", minute:"2-digit"})}`; }
@@ -192,7 +192,7 @@ const visible = useMemo(() => {
   const today = todayIso();
   const attentionCount = apps.filter(app => needsAttention(app, today)).length;
   const attentionApplications = apps.filter(app => needsAttention(app, today)).sort((left, right) => String(left.nextActionDate).localeCompare(String(right.nextActionDate)));
-  const active = apps.filter(app => !["Rejected", "Withdrawn"].includes(app.status)).length;
+  const active = apps.filter(app => !["Rejected", "Withdrawn", "Expired"].includes(app.status)).length;
   const response = analytics?.responseRate ?? (apps.length ? Math.round((apps.filter(app => ["Contact", "Phone screen", "Interview", "Offer"].includes(app.status)).length / apps.length) * 100) : 0);
 
 

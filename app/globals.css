@@ -646,3 +646,15 @@
 .attention-list span,.attention-list small { display:block; }.attention-list small { margin-top:3px; color:var(--muted); font-size:10px; }.attention-list strong { font-size:12px; }
 [data-theme="applyly-dark"] .attention-list button { background:#2d332f; border-color:#3a403c; color:#edf1ec; }
 @media (max-width:900px) { .attention-queue { grid-template-columns:1fr; } }
+
+/* Expired is a terminal, time-lapsed outcome. */
+.badge.expired { background:#fff1d6; color:#9a6b22; }
+.stage.expired .dot { background:#c38b32; }
+.bar-fill.expired,.stacked-segment.expired { background:#c38b32; }
+.legend-swatch.expired { background:#c38b32; }
+.status-dot.expired { background:#c38b32; }
+.timeline-dot.expired { background:#c38b32; box-shadow:0 0 0 3px #fff1d6; }
+.status-picker-trigger.expired { background:#fff1d6; color:#9a6b22; }
+.status-picker-option.expired[aria-selected="true"] { color:#9a6b22; background:#fff1d6; }
+.status-color-dot.expired { background:#c38b32; }
+.field .status-picker-trigger.expired { background:#fff1d6; color:#9a6b22; border-color:#f0d8a8; }

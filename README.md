@@ -8,7 +8,7 @@ It is built with React 19, vinext, Vite, Cloudflare Workers, Cloudflare D1/SQLit
 
 - Application pipeline with searchable and filterable statuses
 - Optional salary, application URL, contact email, source, next step, and next action date
-- Status flow including `Applied`, `Contact`, `Phone screen`, `Assessment`, `Interview`, `Offer`, `Rejected`, and `Withdrawn`
+- Status flow including `Applied`, `Contact`, `Phone screen`, `Assessment`, `Interview`, `Offer`, `Rejected`, `Withdrawn`, and `Expired`
 - Persistent status history for every application
 - Timeline view for individual application status changes, including undo
 - Editable application details, notes, source, contact, next steps, salary, and links

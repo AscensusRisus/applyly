@@ -15,7 +15,7 @@ export type Analytics = {
   transitions:{applicationToAssessment:number; applicationToInterview:number; applicationToRejected:number; interviewToOffer:number; interviewToRejected:number};
 };
 
-const statuses = ["Applied", "Contact", "Phone screen", "Assessment", "Interview", "Offer", "Rejected", "Withdrawn"];
+const statuses = ["Applied", "Contact", "Phone screen", "Assessment", "Interview", "Offer", "Rejected", "Withdrawn", "Expired"];
 const trendLabels = ["Total applications", ...statuses];
 const statusColors:Record<string,string> = {
   "Total applications":"#26312b",
@@ -27,6 +27,7 @@ const statusColors:Record<string,string> = {
   Offer:"#3aa76d",
   Rejected:"#d45f62",
   Withdrawn:"#8b9390",
+  Expired:"#c38b32",
 };
 const statusClass = (status:string) => status.toLowerCase().replaceAll(" ", "-");
 
@@ -35,7 +36,7 @@ export default function InsightsPanel({ apps, analytics, selectedYear, onSelectY
   const years = [...new Set(apps.map(app => app.appliedDate.slice(0, 4)).filter(year => /^\d{4}$/.test(year)))].sort((a, b) => Number(b) - Number(a));
   const scopedApps = selectedYear === "all" ? apps : apps.filter(app => app.appliedDate.startsWith(`${selectedYear}-`));
   const counts = statuses.map(status => ({ status, count:scopedApps.filter(app => app.status === status).length }));
-  const active = scopedApps.filter(app => !["Rejected", "Withdrawn"].includes(app.status)).length;
+  const active = scopedApps.filter(app => !["Rejected", "Withdrawn", "Expired"].includes(app.status)).length;
   const healthPercent = scopedApps.length ? Math.round(active / scopedApps.length * 100) : 0;
   let statusCursor = 0;
   const donutGradient = scopedApps.length ? `conic-gradient(${counts.map(item => { const start = statusCursor; statusCursor += item.count / scopedApps.length * 100; return `${statusColors[item.status]} ${start}% ${statusCursor}%`; }).join(",")})` : "#eef0ed";

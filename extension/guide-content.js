@@ -21,6 +21,7 @@ if (!globalThis.__applylyGuideLoaded) {
     "Offer": ["#28744d", "#def4e7"],
     "Rejected": ["#a84848", "#fbe5e5"],
     "Withdrawn": ["#58615d", "#e6eae7"],
+    "Expired": ["#9a6b22", "#fff1d6"],
   };
 
   function removeGuidance() {

@@ -224,14 +224,14 @@ test("data transfers include structured backups, independent formats, and explic
   assert.match(page, /Custom/);
   assert.match(page, /Search company, role, location, date, source or salary/);
 });
-test("Contact and Withdrawn are shared API-supported statuses", async () => {
+test("Contact, Withdrawn, and Expired are shared API-supported statuses", async () => {
   const [options, storage, insights, contract] = await Promise.all([
     read("app/lib/application-options.ts"),
     read("app/api/applications/storage.ts"),
     read("app/components/insights-panel.tsx"),
     read("API_CONTRACT.md"),
   ]);
-  for (const status of ["Contact", "Withdrawn"]) {
+  for (const status of ["Contact", "Withdrawn", "Expired"]) {
     assert.match(options, new RegExp(status));
     assert.match(storage, /new Set\(applicationStatuses\)/);
     assert.match(insights, new RegExp(status));
