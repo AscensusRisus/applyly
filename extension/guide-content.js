@@ -13,15 +13,15 @@ if (!globalThis.__applylyGuideLoaded) {
   let summaryDismissed = false;
 
   const statusColors = {
-    "Applied": ["#5c4ec0", "#ebe7ff"],
-    "Contact": ["#9a622b", "#fff0df"],
-    "Phone screen": ["#2875b9", "#e5f2ff"],
-    "Assessment": ["#9851aa", "#f6e7fb"],
-    "Interview": ["#94610f", "#fff1cf"],
-    "Offer": ["#28744d", "#def4e7"],
-    "Rejected": ["#a84848", "#fbe5e5"],
-    "Withdrawn": ["#58615d", "#e6eae7"],
-    "Expired": ["#9a6b22", "#fff1d6"],
+    "Applied": ["#917cef", "#eee9ff"],
+    "Contact": ["#249a90", "#e1f5f1"],
+    "Phone screen": ["#428bd3", "#e8f1ff"],
+    "Assessment": ["#c56ed2", "#f8e6fb"],
+    "Interview": ["#e2a43b", "#fff0d9"],
+    "Offer": ["#36a66a", "#e9f7ee"],
+    "Rejected": ["#d75c66", "#fde8e7"],
+    "Withdrawn": ["#89918d", "#eef0ef"],
+    "Expired": ["#af4e58", "#f8e5e7"],
   };
 
   function removeGuidance() {

@@ -57,15 +57,15 @@ input:focus { border-color: #88ad45; box-shadow: 0 0 0 3px rgb(168 223 69 / 18%)
 .result-company, .result-meta { color: var(--muted); font-size: 11px; }
 .match-reason { grid-column: 1 / -1; color: #527b0c; font-size: 10px; font-weight: 700; }
 .result-meta { grid-column: 1 / -1; }
-.status-pill { align-self: start; border-radius: 999px; padding: 4px 7px; color: #5c4ec0; background: #ebe7ff; font-size: 10px; font-weight: 700; }
-.status-pill[data-status="Contact"] { color: #9a622b; background: #fff0df; }
-.status-pill[data-status="Phone screen"] { color: #2875b9; background: #e5f2ff; }
-.status-pill[data-status="Assessment"] { color: #9851aa; background: #f6e7fb; }
-.status-pill[data-status="Interview"] { color: #94610f; background: #fff1cf; }
-.status-pill[data-status="Offer"] { color: #28744d; background: #def4e7; }
-.status-pill[data-status="Rejected"] { color: #a84848; background: #fbe5e5; }
-.status-pill[data-status="Withdrawn"] { color: #58615d; background: #e6eae7; }
-.status-pill[data-status="Expired"] { color: #9a6b22; background: #fff1d6; }
+.status-pill { align-self: start; border-radius: 999px; padding: 4px 7px; color: #6759bd; background: #eee9ff; font-size: 10px; font-weight: 700; }
+.status-pill[data-status="Contact"] { color: #18766e; background: #e1f5f1; }
+.status-pill[data-status="Phone screen"] { color: #276fb1; background: #e8f1ff; }
+.status-pill[data-status="Assessment"] { color: #9250a8; background: #f8e6fb; }
+.status-pill[data-status="Interview"] { color: #9c6311; background: #fff0d9; }
+.status-pill[data-status="Offer"] { color: #217548; background: #e9f7ee; }
+.status-pill[data-status="Rejected"] { color: #a54049; background: #fde8e7; }
+.status-pill[data-status="Withdrawn"] { color: #5d6863; background: #eef0ef; }
+.status-pill[data-status="Expired"] { color: #93404a; background: #f8e5e7; }
 .empty-results { border: 1px dashed #d5dbd7; border-radius: 10px; padding: 18px; color: var(--muted); text-align: center; font-size: 12px; }
 .connection-card { padding: 0 14px 14px; }
 .connection-card summary { cursor: pointer; padding: 13px 0; font-size: 12px; font-weight: 700; }

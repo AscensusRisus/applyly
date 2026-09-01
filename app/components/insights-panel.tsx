@@ -19,15 +19,15 @@ const statuses = ["Applied", "Contact", "Phone screen", "Assessment", "Interview
 const trendLabels = ["Total applications", ...statuses];
 const statusColors:Record<string,string> = {
   "Total applications":"#26312b",
-  Applied:"#8d78ee",
-  Contact:"#d38b45",
-  "Phone screen":"#4f8fd9",
-  Assessment:"#d28ce7",
-  Interview:"#e3a942",
-  Offer:"#3aa76d",
-  Rejected:"#d45f62",
-  Withdrawn:"#8b9390",
-  Expired:"#c38b32",
+  Applied:"#917cef",
+  Contact:"#249a90",
+  "Phone screen":"#428bd3",
+  Assessment:"#c56ed2",
+  Interview:"#e2a43b",
+  Offer:"#36a66a",
+  Rejected:"#d75c66",
+  Withdrawn:"#89918d",
+  Expired:"#af4e58",
 };
 const statusClass = (status:string) => status.toLowerCase().replaceAll(" ", "-");
 

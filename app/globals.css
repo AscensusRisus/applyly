@@ -658,3 +658,28 @@
 .status-picker-option.expired[aria-selected="true"] { color:#9a6b22; background:#fff1d6; }
 .status-color-dot.expired { background:#c38b32; }
 .field .status-picker-trigger.expired { background:#fff1d6; color:#9a6b22; border-color:#f0d8a8; }
+/* One semantic palette for every status surface. This comes after theme rules so
+   the meaning of a status is retained in every selected theme. */
+.applied { --status-color:#917cef; --status-ink:#6759bd; --status-soft:#eee9ff; }
+.contact { --status-color:#249a90; --status-ink:#18766e; --status-soft:#e1f5f1; }
+.phone-screen { --status-color:#428bd3; --status-ink:#276fb1; --status-soft:#e8f1ff; }
+.assessment { --status-color:#c56ed2; --status-ink:#9250a8; --status-soft:#f8e6fb; }
+.interview { --status-color:#e2a43b; --status-ink:#9c6311; --status-soft:#fff0d9; }
+.offer { --status-color:#36a66a; --status-ink:#217548; --status-soft:#e9f7ee; }
+.rejected { --status-color:#d75c66; --status-ink:#a54049; --status-soft:#fde8e7; }
+.withdrawn { --status-color:#89918d; --status-ink:#5d6863; --status-soft:#eef0ef; }
+.expired { --status-color:#af4e58; --status-ink:#93404a; --status-soft:#f8e5e7; }
+
+.stage.applied,.stage.contact,.stage.phone-screen,.stage.assessment,.stage.interview,.stage.offer,.stage.rejected,.stage.withdrawn,.stage.expired { background:color-mix(in srgb, var(--status-color) 12%, var(--theme-surface, #f5f6f3)); border:1px solid color-mix(in srgb, var(--status-color) 24%, var(--line)); }
+.stage.applied .dot,.stage.contact .dot,.stage.phone-screen .dot,.stage.assessment .dot,.stage.interview .dot,.stage.offer .dot,.stage.rejected .dot,.stage.withdrawn .dot,.stage.expired .dot,
+.status-dot.applied,.status-dot.contact,.status-dot.phone-screen,.status-dot.assessment,.status-dot.interview,.status-dot.offer,.status-dot.rejected,.status-dot.withdrawn,.status-dot.expired,
+.legend-swatch.applied,.legend-swatch.contact,.legend-swatch.phone-screen,.legend-swatch.assessment,.legend-swatch.interview,.legend-swatch.offer,.legend-swatch.rejected,.legend-swatch.withdrawn,.legend-swatch.expired,
+.bar-fill.applied,.bar-fill.contact,.bar-fill.phone-screen,.bar-fill.assessment,.bar-fill.interview,.bar-fill.offer,.bar-fill.rejected,.bar-fill.withdrawn,.bar-fill.expired,
+.stacked-segment.applied,.stacked-segment.contact,.stacked-segment.phone-screen,.stacked-segment.assessment,.stacked-segment.interview,.stacked-segment.offer,.stacked-segment.rejected,.stacked-segment.withdrawn,.stacked-segment.expired { background:var(--status-color); }
+.timeline-dot.applied,.timeline-dot.contact,.timeline-dot.phone-screen,.timeline-dot.assessment,.timeline-dot.interview,.timeline-dot.offer,.timeline-dot.rejected,.timeline-dot.withdrawn,.timeline-dot.expired { background:var(--status-color); box-shadow:0 0 0 3px var(--status-soft); }
+.badge.applied,.badge.contact,.badge.phone-screen,.badge.assessment,.badge.interview,.badge.offer,.badge.rejected,.badge.withdrawn,.badge.expired,
+.status-picker-trigger.applied,.status-picker-trigger.contact,.status-picker-trigger.phone-screen,.status-picker-trigger.assessment,.status-picker-trigger.interview,.status-picker-trigger.offer,.status-picker-trigger.rejected,.status-picker-trigger.withdrawn,.status-picker-trigger.expired { background:color-mix(in srgb, var(--status-soft) 78%, var(--theme-control, #fff)); color:var(--status-ink); border-color:color-mix(in srgb, var(--status-color) 26%, var(--line)); }
+.badge.applied,.badge.contact,.badge.phone-screen,.badge.assessment,.badge.interview,.badge.offer,.badge.rejected,.badge.withdrawn,.badge.expired { border:0; }
+.status-picker-trigger.applied .status-color-dot,.status-picker-trigger.contact .status-color-dot,.status-picker-trigger.phone-screen .status-color-dot,.status-picker-trigger.assessment .status-color-dot,.status-picker-trigger.interview .status-color-dot,.status-picker-trigger.offer .status-color-dot,.status-picker-trigger.rejected .status-color-dot,.status-picker-trigger.withdrawn .status-color-dot,.status-picker-trigger.expired .status-color-dot,
+.status-picker-option.applied .status-color-dot,.status-picker-option.contact .status-color-dot,.status-picker-option.phone-screen .status-color-dot,.status-picker-option.assessment .status-color-dot,.status-picker-option.interview .status-color-dot,.status-picker-option.offer .status-color-dot,.status-picker-option.rejected .status-color-dot,.status-picker-option.withdrawn .status-color-dot,.status-picker-option.expired .status-color-dot { background:var(--status-color); }
+.status-picker-option.applied[aria-selected="true"],.status-picker-option.contact[aria-selected="true"],.status-picker-option.phone-screen[aria-selected="true"],.status-picker-option.assessment[aria-selected="true"],.status-picker-option.interview[aria-selected="true"],.status-picker-option.offer[aria-selected="true"],.status-picker-option.rejected[aria-selected="true"],.status-picker-option.withdrawn[aria-selected="true"],.status-picker-option.expired[aria-selected="true"] { background:color-mix(in srgb, var(--status-soft) 72%, var(--theme-control, #fff)); color:var(--status-ink); }
