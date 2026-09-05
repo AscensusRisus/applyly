@@ -6,9 +6,12 @@ Applyly Companion is designed for a local Applyly instance. It has no vendor ser
 
 - applylyEndpoint: the local Applyly origin, normally http://localhost:3000
 - applylyPairingToken: the user-created local API token
+- applylyCaptureDraft: one company, role, and job URL, stored when you choose Keep draft or Review captured job in Applyly; retained until explicitly discarded or replaced by another kept draft
 - applylyGuidedOrigins: the site patterns for which the user explicitly enabled persistent guidance
 
 These values use browser-local extension storage. Application records are not copied into browser storage.
+
+Capturing a page requires no API request. Checking connection authenticates the token using a synthetic job URL at connection-check.invalid, sent only to localhost; the extension does not contact that domain. Opening a draft puts its fields in a localhost URL, which can appear in browser history.
 
 ## Ephemeral data
 

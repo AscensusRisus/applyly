@@ -1,16 +1,19 @@
 # Applyly Companion
 
-Applyly Companion is the privacy-first Chromium extension for a locally running Applyly instance. It marks job cards that match your local application history without copying the application database into the extension.
+Applyly Companion is the privacy-first Chromium extension for a locally running Applyly instance. Its primary workflow is to capture a job, correct the details, and open a draft in Applyly. Optional paired history checks help identify jobs you already track.
 
 > Status: experimental and actively under development. The current detector is a useful foundation, but it is not yet reliable enough to identify every previously applied job across all job boards. Always verify a detected company, role, and URL in Applyly.
 
 ## Install locally
 
-1. From the repository root, run **npm install** and **npm run dev**.
-2. Open Applyly Settings and create a browser-extension pairing token. Copy it immediately; Applyly stores only its hash.
-3. Open **chrome://extensions** or **edge://extensions** and enable Developer mode.
-4. Choose **Load unpacked** and select this **extension** directory.
-5. Open the extension, expand **Connection settings**, paste the token, and choose **Save and connect**.
+1. Open **chrome://extensions** or **edge://extensions**, enable Developer mode, choose **Load unpacked**, and select this **extension** directory.
+2. Open a job page, click the extension, and choose **Scan page**. On a feed, select the job you want from the dropdown.
+3. Correct the company, role, and URL. If extraction finds nothing, the current URL is offered for manual entry.
+4. Choose **Keep draft** to retain one job in this browser, including while Applyly is offline. Reopening the popup restores it. Keeping another draft replaces it; **Discard saved browser draft** removes it.
+5. Run **npm run dev** from the repository root, then choose **Review captured job in Applyly**. Review the form and applied date before saving. Opening the tab also keeps the draft; only explicit discard removes it because the extension cannot confirm the app saved successfully.
+6. Optional: create a pairing token in Applyly Settings, enter it under **Connection settings**, and choose **Save and connect**. **Check history** then checks your selected, edited job. Matching records have **Open application** links.
+
+Capture does not require a token or a running server. Saving an application requires the local app. The extension never marks a job as applied automatically. Unsaved field edits are temporary until you choose **Keep draft** or **Review captured job in Applyly**.
 
 If Applyly runs on a different local port, enter that full local origin, for example **http://localhost:4173**.
 
@@ -39,9 +42,9 @@ Open a job board or careers site, click the extension, and choose **Enable** und
 
 The content script is registered only for sites you enable and persists across page refreshes and browser restarts. Choose **Disable** in the same popup to unregister it and remove that site's permission.
 
-### Scan once
+### Capture once (primary workflow)
 
-Choose **Scan page** when you want a one-time check without enabling persistent guidance. On a single job page you can correct the detected company and review a prefilled Applyly draft. The extension never saves an application itself.
+Choose **Scan page** for a one-time local page read. Select a detected job, edit its company, role, and URL, then keep a browser draft or review it in Applyly. **Check history** is a separate, optional paired action for that edited job. Existing matches remain available even when an exact URL is already tracked; review them before creating anything. The extension never saves an application itself.
 
 Browser-internal pages and extension-store pages cannot be scanned.
 
@@ -59,9 +62,9 @@ Only rendered page content can be inspected. Jobs hidden behind a closed shadow 
 - Required host access is limited to local Applyly. Job-site access is optional and requested for the current hostname only when you enable guidance.
 - There is no static all-sites content script and no all-sites permission.
 - Application records stay in Applyly's local D1/SQLite database.
-- The extension stores the local Applyly origin, pairing token, and enabled site patterns in browser-local extension storage.
+- The extension stores the local Applyly origin, pairing token, enabled site patterns, and one explicitly kept job draft in browser-local extension storage.
 - Visible job candidates and match results are processed ephemerally. A short in-memory tab cache avoids duplicate requests and is discarded with the extension worker or tab.
-- Matching and capture remain read-only. Capture passes bounded job details in a localhost URL for review; API version 1 exposes no extension mutation capability.
+- The application API remains read-only. Explicit capture can retain one draft in extension storage. Capture passes bounded job details in a localhost URL for review; API version 1 exposes no extension mutation capability.
 - Localhost host permissions exist only so the popup and service worker can call the local Applyly API.
 
 Treat the pairing token like a local password. Revoke it from Applyly Settings if the browser profile or computer is shared or compromised. See [PRIVACY.md](PRIVACY.md) for the data-flow inventory.

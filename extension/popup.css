@@ -107,4 +107,6 @@ footer { padding: 2px 3px 0; color: var(--muted); font-size: 10px; }
   border-color: #c9dda4;
   color: #527b0c;
   background: #f1f7e5;
-}
+}
+
+select { width: 100%; padding: 9px; border: 1px solid var(--line); border-radius: 9px; font: inherit; background: white; }

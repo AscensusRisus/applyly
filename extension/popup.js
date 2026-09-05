@@ -2,7 +2,8 @@
 
 const DEFAULT_ENDPOINT = "http://localhost:3000";
 const SUPPORTED_API_VERSION = 1;
-const STORAGE_KEYS = ["applylyEndpoint", "applylyPairingToken"];
+const DRAFT_KEY = "applylyCaptureDraft";
+const STORAGE_KEYS = ["applylyEndpoint", "applylyPairingToken", DRAFT_KEY];
 
 const elements = {
   badge: document.querySelector("#connectionBadge"),
@@ -13,6 +14,11 @@ const elements = {
   scanButton: document.querySelector("#scanButton"),
   matchForm: document.querySelector("#matchForm"),
   companyInput: document.querySelector("#companyInput"),
+  roleInput: document.querySelector("#roleInput"),
+  urlInput: document.querySelector("#urlInput"),
+  candidateSelect: document.querySelector("#candidateSelect"),
+  keepDraftButton: document.querySelector("#keepDraftButton"),
+  discardDraftButton: document.querySelector("#discardDraftButton"),
   pageSummary: document.querySelector("#pageSummary"),
   resultsSection: document.querySelector("#resultsSection"),
   resultsList: document.querySelector("#resultsList"),
@@ -33,6 +39,7 @@ let latestCandidateMatches = [];
 let guideTabId = null;
 let guidePattern = "";
 let guideEnabled = false;
+let matchRevision = 0;
 
 function setNotice(message, kind = "info") {
   elements.notice.textContent = message;
@@ -62,7 +69,7 @@ async function request(path, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    const response = await fetch(config.endpoint + path, { ...options, signal: controller.signal });
+    const response = await fetch(normalizeEndpoint(config.endpoint) + path, { ...options, signal: controller.signal });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       if (response.status === 401) throw new Error("Pairing token rejected. Create a new token in Applyly Settings.");
@@ -99,6 +106,11 @@ async function checkHealth() {
     setBadge("Token needed", "error");
     throw new Error("Applyly is ready. Paste its pairing token in Connection settings.");
   }
+  await request("/api/extension/page-match", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + config.token, "Content-Type": "application/json" },
+    body: JSON.stringify({ candidates: [{ url: "https://connection-check.invalid/job" }] }),
+  });
   setBadge("Local - connected", "connected");
   return health;
 }
@@ -177,30 +189,67 @@ async function getActiveTab() {
   return tab;
 }
 
+function clearMatches() {
+  matchRevision += 1;
+  latestMatches = [];
+  latestCandidateMatches = [];
+  elements.resultsList.replaceChildren();
+  elements.resultsSection.hidden = true;
+}
+
+function selectCandidate() {
+  const candidate = pageContext?.candidates?.[Number(elements.candidateSelect.value)] || {};
+  elements.companyInput.value = candidate.company || "";
+  elements.roleInput.value = candidate.role || "";
+  elements.urlInput.value = candidate.url || "";
+  clearMatches();
+}
+
+function editedCandidate() {
+  const company = elements.companyInput.value.trim().slice(0, 300);
+  const role = elements.roleInput.value.trim().slice(0, 500);
+  const rawUrl = elements.urlInput.value.trim();
+  let url = "";
+  if (rawUrl) {
+    try {
+      const parsed = new URL(rawUrl);
+      if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password || rawUrl.length > 2000) throw new Error();
+      url = parsed.href;
+    } catch {
+      throw new Error("Enter a valid http or https job URL (up to 2,000 characters).");
+    }
+  }
+  if (!company && !role && !url) throw new Error("Enter a company, role, or job URL first.");
+  return { company, role, url };
+}
+
 async function scanPage() {
   setNotice("");
+  clearMatches();
+  pageContext = null;
+  elements.matchForm.hidden = true;
+  elements.reviewCaptureButton.hidden = true;
+  elements.pageSummary.hidden = true;
   elements.scanButton.disabled = true;
-  elements.scanButton.textContent = "Scanning...";
+  elements.scanButton.textContent = "Reading...";
   try {
-    await checkHealth();
     const tab = await getActiveTab();
     const [injection] = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       files: ["page-reader-core.js", "page-context.js"],
     });
     pageContext = injection?.result;
-    if (!pageContext || !Array.isArray(pageContext.candidates) || !pageContext.candidates.length) {
-      throw new Error(pageContext?.mode === "collection"
-        ? "No job entries or application links were detected on this collection page."
-        : "No company or application link was detected. Enter the company manually below.");
+    if (!pageContext || !Array.isArray(pageContext.candidates)) throw new Error("The page reader did not respond. Refresh the job page and try again.");
+    if (!pageContext.candidates.length) {
+      pageContext.candidates = [{ company: "", role: "", url: tab.url }];
+      setNotice("No job details were detected. The page URL is ready; enter the company and role manually.");
+    } else {
+      setNotice("Review the detected details. Reading a page does not save an application.");
     }
     showDetectedContext();
-    await matchPageContext();
   } catch (error) {
-    pageContext ||= { mode: "detail", pageUrl: "", candidates: [] };
-    showDetectedContext();
+    pageContext = null;
     setNotice(error.message, "error");
-    if (/token|pairing|reach local/i.test(error.message)) elements.connectionPanel.open = true;
   } finally {
     elements.scanButton.disabled = false;
     elements.scanButton.textContent = "Scan page";
@@ -208,30 +257,38 @@ async function scanPage() {
 }
 
 function showDetectedContext() {
-  const candidates = pageContext?.candidates ?? [];
-  const isCollection = pageContext?.mode === "collection" || candidates.length > 1;
-  elements.matchForm.hidden = isCollection;
-  elements.reviewCaptureButton.hidden = isCollection || !candidates.length;
+  const candidates = pageContext?.candidates || [];
+  elements.candidateSelect.replaceChildren();
+  candidates.forEach((candidate, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = [candidate.role || "Untitled job", candidate.company || candidate.url].filter(Boolean).join(" — ");
+    elements.candidateSelect.append(option);
+  });
+  elements.candidateSelect.value = "0";
+  elements.matchForm.hidden = !candidates.length;
+  elements.reviewCaptureButton.hidden = !candidates.length;
   elements.pageSummary.hidden = false;
-  if (isCollection) {
-    elements.pageSummary.textContent = candidates.length
-      ? candidates.length + " job entries detected. Applyly checks exact links before company names."
-      : "This appears to be a collection page, but no job entries were readable.";
-    return;
-  }
-
-  const candidate = candidates[0] ?? {};
-  elements.matchForm.hidden = false;
-  elements.companyInput.value = candidate.company || "";
-  const parts = [candidate.role, candidate.domain].filter(Boolean);
-  elements.pageSummary.textContent = parts.length
-    ? parts.join(" - ")
-    : candidate.url
-      ? "An application link was detected. Company name is optional when the URL matches."
-      : "Enter or correct the company name before checking.";
+  elements.pageSummary.textContent = candidates.length > 1
+    ? candidates.length + " jobs detected. Choose one to review, including jobs with no application history."
+    : "Correct the details below. Check history if paired, or open a draft in Applyly.";
+  selectCandidate();
 }
 
-async function runPageMatch(candidates) {
+async function keepDraft() {
+  const candidate = editedCandidate();
+  await chrome.storage.local.set({ [DRAFT_KEY]: candidate });
+  elements.discardDraftButton.hidden = false;
+  setNotice("Draft kept in this browser. It will be restored when you reopen the popup. Keeping another draft replaces it.", "success");
+}
+
+async function discardDraft() {
+  await chrome.storage.local.remove(DRAFT_KEY);
+  elements.discardDraftButton.hidden = true;
+  setNotice("Saved browser draft removed. Your Applyly applications are unchanged.");
+}
+
+async function runPageMatch(candidates, revision = matchRevision) {
   const data = await request("/api/extension/page-match", {
     method: "POST",
     headers: {
@@ -243,35 +300,34 @@ async function runPageMatch(candidates) {
       candidates,
     }),
   });
+  if (revision !== matchRevision) return;
   latestMatches = Array.isArray(data.matches) ? data.matches : [];
   latestCandidateMatches = Array.isArray(data.candidateMatches) ? data.candidateMatches : [];
   const matchedCandidates = Number(data.matchedCandidates)
     || latestCandidateMatches.filter(result => Number(result.matchCount) > 0).length;
   renderMatches(latestMatches, Number(data.scannedCandidates) || candidates.length, latestCandidateMatches);
-  elements.reviewCaptureButton.hidden = (pageContext?.candidates?.length ?? 0) !== 1 || latestMatches.some(match => match.reasons?.includes("application-url"));
+  elements.reviewCaptureButton.hidden = false;
   setNotice(matchedCandidates
     ? "Found local history for " + matchedCandidates + " detected job" + (matchedCandidates === 1 ? "" : "s") + "."
     : "No Applyly history matched the detected jobs.",
   matchedCandidates ? "success" : "info");
 }
 
-async function matchPageContext() {
-  const candidates = pageContext?.candidates ?? [];
-  if (!candidates.length) return;
-  await runPageMatch(candidates);
-}
-
 async function matchCurrentCompany() {
-  const company = elements.companyInput.value.trim();
-  const original = pageContext?.candidates?.[0] ?? {};
-  if (!company && !original.url) {
-    setNotice("Enter a company name or scan a page with an application link.", "error");
-    return;
-  }
   const submit = elements.matchForm.querySelector('button[type="submit"]');
   submit.disabled = true;
+  clearMatches();
+  const revision = matchRevision;
   try {
-    await runPageMatch([{ ...original, company }]);
+    const candidate = editedCandidate();
+    if (!candidate.company && !candidate.url) throw new Error("Add a company or job URL to check history.");
+    await checkHealth();
+    if (revision !== matchRevision) return;
+    await runPageMatch([candidate], revision);
+  } catch (error) {
+    if (revision !== matchRevision) return;
+    setBadge("History unavailable", "error");
+    setNotice(error.message + " You can still keep this draft or review it in Applyly.", "error");
   } finally {
     submit.disabled = false;
   }
@@ -369,6 +425,17 @@ function renderMatches(matches, scannedCandidates, candidateMatches = []) {
       .join(" · ");
 
     item.append(title, status, companyLine, reason, meta);
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "text-button";
+    open.textContent = "Open application";
+    open.addEventListener("click", () => {
+      const url = new URL(normalizeEndpoint(config.endpoint));
+      url.searchParams.set("view", "applications");
+      url.searchParams.set("application", String(match.id));
+      chrome.tabs.create({ url: url.href }).catch(error => setNotice(error.message, "error"));
+    });
+    item.append(open);
     elements.resultsList.append(item);
   }
 }
@@ -390,16 +457,16 @@ function sourceFromUrl(value) {
 }
 
 async function reviewCapturedJob() {
-  const candidate = pageContext?.candidates?.[0];
-  if (!candidate) return;
+  const candidate = editedCandidate();
+  const endpoint = normalizeEndpoint(elements.endpointInput.value || config.endpoint);
   const parameters = new URLSearchParams({ capture: "extension" });
-  const company = elements.companyInput.value.trim() || candidate.company || "";
-  if (company) parameters.set("company", company);
-  if (candidate.role) parameters.set("role", candidate.role);
-  if (candidate.url) parameters.set("url", candidate.url);
-  const source = sourceFromUrl(candidate.url || pageContext?.pageUrl || "");
+  for (const [key, value] of Object.entries(candidate)) if (value) parameters.set(key, value);
+  const source = sourceFromUrl(candidate.url);
   if (source) parameters.set("source", source);
-  await chrome.tabs.create({ url: config.endpoint + "/?" + parameters.toString() });
+  // Retain the draft until explicitly discarded: opening a tab is not a confirmed save.
+  await chrome.storage.local.set({ [DRAFT_KEY]: candidate, applylyEndpoint: endpoint });
+  elements.discardDraftButton.hidden = false;
+  await chrome.tabs.create({ url: endpoint + "/?" + parameters.toString() });
   window.close();
 }
 async function saveConnection(event) {
@@ -414,6 +481,12 @@ async function saveConnection(event) {
       applylyEndpoint: config.endpoint,
       applylyPairingToken: config.token,
     });
+    if (!config.token) {
+      setBadge("Capture ready");
+      setNotice("Local address saved. Pairing is optional and only needed for history checks.", "success");
+      elements.connectionPanel.open = false;
+      return;
+    }
     await checkHealth();
     elements.connectionPanel.open = false;
     setNotice("Connected to local Applyly.", "success");
@@ -427,6 +500,7 @@ async function forgetConnection() {
   await chrome.storage.local.remove("applylyPairingToken");
   config.token = "";
   elements.tokenInput.value = "";
+  clearMatches();
   setBadge("Token needed", "error");
   setNotice("The pairing token was removed from this browser profile.");
   elements.connectionPanel.open = true;
@@ -447,15 +521,28 @@ async function initialize() {
   };
   elements.endpointInput.value = config.endpoint;
   elements.tokenInput.value = config.token;
-  if (!config.token) elements.connectionPanel.open = true;
+  if (stored[DRAFT_KEY] && typeof stored[DRAFT_KEY] === "object") {
+    pageContext = { mode: "detail", candidates: [stored[DRAFT_KEY]] };
+    showDetectedContext();
+    elements.discardDraftButton.hidden = false;
+    setNotice("Restored your saved browser draft. It may be from a different page. Scan page to read the current tab.");
+  }
+  if (!config.token) {
+    setBadge("Capture ready");
+    return;
+  }
   try {
     await checkHealth();
   } catch (error) {
-    setNotice(error.message, "error");
-    elements.connectionPanel.open = true;
+    setBadge("History unavailable", "error");
+    setNotice(error.message + " Capture still works.", "error");
   }
 }
 
+elements.candidateSelect.addEventListener("change", selectCandidate);
+for (const field of [elements.companyInput, elements.roleInput, elements.urlInput]) field.addEventListener("input", clearMatches);
+elements.keepDraftButton.addEventListener("click", () => keepDraft().catch(error => setNotice(error.message, "error")));
+elements.discardDraftButton.addEventListener("click", () => discardDraft().catch(error => setNotice(error.message, "error")));
 elements.guideButton.addEventListener("click", () => toggleGuide().catch(error => setNotice(error.message, "error")));
 elements.scanButton.addEventListener("click", scanPage);
 elements.matchForm.addEventListener("submit", event => {

@@ -75,7 +75,9 @@ The existing application API remains same-origin for backward compatibility. The
 
 Applyly does not read browser pages by itself. The companion extension supports a one-time **Scan page** action and an optional **Guide this site** mode. Enabling guidance requests access only to the current hostname, registers a refresh-safe content script for that site, and watches newly rendered cards on dynamic or infinite-scroll job feeds.
 
-The extension currently provides these experimental features:
+The primary workflow is now **Scan page → select a job → correct company, role, and URL → Review captured job in Applyly**. Capture works without pairing or a running server. **Keep draft** retains one job across popup closes; the local app must be running to save an application. Pairing is optional for history checks. See [the extension review and scope](EXTENSION_REVIEW_AND_SCOPE.md) for changes, evidence, and next steps.
+
+The extension also provides these experimental history features:
 
 - API and backup version discovery through GET /api/health
 - Pairing creation and revocation from Settings
@@ -94,7 +96,7 @@ Known extension issues:
 - Site-specific extraction needs further adapters and real-world testing, especially for application-history pages and authenticated job boards.
 - The extension remains read-only and review-first; it does not create or update applications automatically.
 
-To install or reload it locally, follow [extension/README.md](extension/README.md). The extension calls Applyly through its local host permission and never reads D1/SQLite files. Enabled hostnames, the local endpoint, and the pairing token are the only durable extension settings.
+To install or reload it locally, follow [extension/README.md](extension/README.md). The extension calls Applyly through its local host permission and never reads D1/SQLite files. Enabled hostnames, the local endpoint, the pairing token, and one explicitly kept capture draft are stored locally in the browser.
 ## Analytics model
 
 Insights are calculated from status history rather than only the current status. An application that moves through:

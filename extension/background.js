@@ -107,11 +107,15 @@ async function disableGuidance(tabId) {
   return { pattern };
 }
 
-async function connectionConfig() {
+async function connectionConfig(requireToken = true) {
   const stored = await chrome.storage.local.get([ENDPOINT_KEY, TOKEN_KEY]);
-  const endpoint = stored[ENDPOINT_KEY] || DEFAULT_ENDPOINT;
+  const address = new URL(stored[ENDPOINT_KEY] || DEFAULT_ENDPOINT);
+  if (address.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(address.hostname) || address.username || address.password) {
+    throw new Error("Applyly must use a local http://localhost or http://127.0.0.1 address.");
+  }
+  const endpoint = address.origin;
   const token = stored[TOKEN_KEY] || "";
-  if (!token) throw new Error("Add the Applyly pairing token in the extension popup.");
+  if (requireToken && !token) throw new Error("Add the Applyly pairing token in the extension popup.");
   return { endpoint, token };
 }
 
@@ -168,7 +172,7 @@ function sourceFromUrl(value) {
 }
 
 async function openApplyly(parameters = {}) {
-  const { endpoint } = await connectionConfig();
+  const { endpoint } = await connectionConfig(false);
   const url = new URL(endpoint);
   for (const [key, value] of Object.entries(parameters)) {
     if (value !== undefined && value !== null && String(value).trim()) url.searchParams.set(key, String(value));

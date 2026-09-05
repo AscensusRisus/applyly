@@ -12,7 +12,7 @@ const extensionIdFromKey = key => [...createHash("sha256").update(Buffer.from(ke
 test("extension manifest keeps local API access required and job-site access optional", async () => {
   const manifest = JSON.parse(await read("extension/manifest.json"));
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, "0.4.0");
+  assert.equal(manifest.version, "0.5.0");
   assert.deepEqual(new Set(manifest.permissions), new Set(["activeTab", "scripting", "storage"]));
   assert.deepEqual(manifest.host_permissions, ["http://localhost/*", "http://127.0.0.1/*"]);
   assert.deepEqual(manifest.optional_host_permissions, ["https://*/*", "http://*/*"]);

@@ -17,38 +17,33 @@
       </header>
 
       <section id="notice" class="notice" role="status" aria-live="polite" hidden></section>
-      <section class="card guide-card" aria-labelledby="guideTitle">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">JOB SEARCH GUIDE</p>
-            <h2 id="guideTitle">Guide this site</h2>
-          </div>
-          <span id="guideState" class="guide-state" data-state="off">Off</span>
-        </div>
-        <p class="supporting-copy">When enabled, Applyly marks familiar jobs as feeds load, refresh, paginate, or update.</p>
-        <div class="guide-action-row">
-          <span id="guideSite" class="guide-site">Checking current site...</span>
-          <button id="guideButton" class="secondary-button" type="button" disabled>Enable</button>
-        </div>
-        <p class="privacy-note">Access is granted only for this site and can be removed here at any time.</p>
-      </section>
-
       <section class="card scan-card" aria-labelledby="scanTitle">
         <div class="section-heading">
           <div>
             <p class="eyebrow">CURRENT PAGE</p>
-            <h2 id="scanTitle">Check application history</h2>
+            <h2 id="scanTitle">Capture a job</h2>
           </div>
           <button id="scanButton" class="primary-button" type="button">Scan page</button>
         </div>
-        <p class="supporting-copy">Use a one-time scan to inspect detected jobs and local history without enabling ongoing guidance.</p>
+        <p class="supporting-copy">Read this page, correct the details, and review a draft in Applyly. No pairing is needed to capture. Start the local app when you are ready to save.</p>
 
         <form id="matchForm" class="match-form" hidden>
-          <label for="companyInput">Detected company</label>
+          <label for="candidateSelect">Job to capture</label>
+          <select id="candidateSelect"></select>
+          <label for="companyInput">Company</label>
           <div class="inline-control">
-            <input id="companyInput" name="company" autocomplete="organization" required>
-            <button class="secondary-button" type="submit">Check history</button>
+            <input id="companyInput" name="company" autocomplete="organization" maxlength="300">
+
           </div>
+          <label for="roleInput">Role</label>
+          <input id="roleInput" maxlength="500">
+          <label for="urlInput">Job URL</label>
+          <input id="urlInput" type="url" maxlength="2000">
+          <div class="connection-actions">
+            <button class="secondary-button" type="submit">Check history</button>
+            <button id="keepDraftButton" class="secondary-button" type="button">Keep draft</button>
+          </div>
+          <p class="privacy-note">Keep draft stores one job in this browser. A new kept draft replaces the previous one. This does not mark a job as applied.</p>
         </form>
         <p id="pageSummary" class="page-summary" hidden></p>
       </section>
@@ -65,18 +60,35 @@
       </section>
 
       <button id="reviewCaptureButton" class="primary-button capture-button" type="button" hidden>Review captured job in Applyly</button>
+      <button id="discardDraftButton" class="text-button danger" type="button" hidden>Discard saved browser draft</button>
+      <section class="card guide-card" aria-labelledby="guideTitle">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">EXPERIMENTAL</p>
+            <h2 id="guideTitle">Guide this site</h2>
+          </div>
+          <span id="guideState" class="guide-state" data-state="off">Off</span>
+        </div>
+        <p class="supporting-copy">Requires pairing and a running local app. Detection varies by site; verify matches in Applyly.</p>
+        <div class="guide-action-row">
+          <span id="guideSite" class="guide-site">Checking current site...</span>
+          <button id="guideButton" class="secondary-button" type="button" disabled>Enable</button>
+        </div>
+        <p class="privacy-note">Access is granted only for this site and can be removed here at any time.</p>
+      </section>
+
       <details id="connectionPanel" class="card connection-card">
         <summary>Connection settings</summary>
         <form id="connectionForm">
           <label for="endpointInput">Applyly address</label>
           <input id="endpointInput" name="endpoint" type="url" value="http://localhost:3000" spellcheck="false" required>
           <label for="tokenInput">Pairing token</label>
-          <input id="tokenInput" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste the token from Applyly Settings" required>
+          <input id="tokenInput" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="Optional: token from Applyly Settings">
           <div class="connection-actions">
             <button class="secondary-button" type="submit">Save and connect</button>
             <button id="forgetButton" class="text-button danger" type="button">Forget token</button>
           </div>
-          <p class="privacy-note">Only this address and token are stored in this browser profile. Application records remain in local D1.</p>
+          <p class="privacy-note">This browser stores your address, token, enabled sites, and any draft you keep. Application records remain in local D1.</p>
         </form>
       </details>
 
