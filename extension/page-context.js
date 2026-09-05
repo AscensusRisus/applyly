@@ -132,14 +132,14 @@
     "[class*='companyName']", "[class*='CompanyName']", "[class*='employer-name']",
     "[class*='employerName']", "[class*='organization-name']", "a[href*='/company/']",
     "a[href*='/companies/']", "[data-company-name]", "[data-automation-id='companyName']",
-    "[class*='primary-description']", "[class*='entity-lockup__subtitle']",
+    "[class*='primary-description']", "[class*='entity-lockup__subtitle']", "[class*='posting-company']",
   ];
   const roleSelectors = [
     "[data-testid*='job-title']", "[data-test*='job-title']", "[data-cy*='job-title']",
     "[data-qa*='job-title']", "[itemprop='title']", "[class*='job-title']",
     "[class*='jobTitle']", "[class*='JobTitle']", "[data-job-title]",
     "[data-automation-id='jobTitle']", "[class*='job-card-list__title']",
-    "[class*='job-card-container__link']",
+    "[class*='job-card-container__link']", "[class*='posting-title']",
   ];
   const roleHeadingSelectors = ["h1", "h2", "h3"];
   const firstElement = (container, selectors) => selectors

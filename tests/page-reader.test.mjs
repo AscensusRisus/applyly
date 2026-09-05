@@ -238,3 +238,23 @@ test("Workday-style collection fixture extracts automation fields from separate 
     },
   ]);
 });
+
+test("Lever-style collection fixture extracts posting title and company fields", async () => {
+  const result = await runPageFixture(
+    "lever-collection.html",
+    "https://northstar.example.com/careers",
+  );
+  assert.equal(result.mode, "collection");
+  assert.deepEqual(JSON.parse(JSON.stringify(result.candidates.map(({ company, role, url }) => ({ company, role, url })))), [
+    {
+      company: "Northstar Labs",
+      role: "Platform Reliability Engineer",
+      url: "https://jobs.lever.co/northstar/abc123?lever-source=job-board",
+    },
+    {
+      company: "Northstar Labs",
+      role: "Developer Experience Engineer",
+      url: "https://jobs.lever.co/northstar/def456?lever-source=job-board",
+    },
+  ]);
+});
