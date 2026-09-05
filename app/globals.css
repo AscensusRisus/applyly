@@ -638,6 +638,12 @@
 [data-theme="applyly-dark"] .form-reset-button { background:#1c201e; color:#edf1ec; }
 [data-theme="applyly-dark"] .modal-close:hover,
 [data-theme="applyly-dark"] .form-reset-button:hover { background:#2d332f; }
+/* Modal surfaces stay open until the explicit close control is used. */
+.modal-close { width:32px; height:32px; flex:0 0 32px; display:grid; place-items:center; border:0; border-radius:7px; padding:0; background:transparent; color:#c94b52; font-size:26px; font-weight:400; line-height:1; }
+.modal-close:hover { background:#fff0ee; color:#a43f45; }
+.modal-close:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
+[data-theme]:not([data-theme=""]) .modal-close { color:#e05b63; }
+[data-theme]:not([data-theme=""]) .modal-close:hover { background:var(--theme-hover); color:#f07c82; }
 .capture-notice { margin:-8px 0 18px; background:#f0f5e2; color:#40512f; border:1px solid #dce8c5; }
 .attention-queue { display:grid; grid-template-columns:minmax(220px,.6fr) 1.4fr; gap:20px; padding:18px 19px; margin-bottom:20px; }
 .attention-list { display:grid; gap:7px; }

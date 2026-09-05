@@ -71,11 +71,11 @@ export default function ApplicationDetailsModal({ dateLocale, application, onClo
     ["Next action", application.nextActionDate],
   ].filter(([, item]) => Boolean(item));
 
-  return <div className="modal-backdrop" onClick={onClose}>
+  return <div className="modal-backdrop">
     <section className="details-modal" role="dialog" aria-modal="true" aria-labelledby="details-title" onClick={event => event.stopPropagation()}>
       <div className="modal-head">
         <div><p className="eyebrow">APPLICATION DETAILS</p><h2 id="details-title">{application.company}</h2><p className="sub">{application.role}</p></div>
-        <button className="modal-close" onClick={onClose} aria-label="Close">Close</button>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close" title="Close"><span aria-hidden="true">×</span></button>
       </div>
       {!editing ? <div className="details-body">
         <div className="details-status"><span className={`status-dot ${application.status.toLowerCase().replaceAll(" ", "-")}`}/>{application.status}</div>
