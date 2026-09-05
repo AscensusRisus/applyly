@@ -161,6 +161,14 @@ test("page reader normalizes stable job identities across URL variants", () => {
     reader.normalizeJobUrl("https://www.indeed.com/viewjob?jk=ABC123&utm_source=feed"),
     "indeed.com/job/abc123",
   );
+  assert.equal(
+    reader.normalizeJobUrl("https://jobs.lever.co/acme/ABC123?lever-source=job-board&utm_campaign=feed"),
+    "jobs.lever.co/acme/ABC123",
+  );
+  assert.equal(
+    reader.normalizeJobUrl("https://job-boards.greenhouse.io/acme/jobs/123456?gh_jid=123456&gh_src=board"),
+    "greenhouse.io/jobs/123456",
+  );
 });
 
 test("page reader recognizes job detail links without treating feed navigation as jobs", () => {

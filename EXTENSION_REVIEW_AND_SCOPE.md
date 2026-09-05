@@ -46,6 +46,7 @@ The first part of the extraction phase is now implemented and covered by executa
 
 - Nested structured JobPosting data is traversed through common mainEntity, mainEntityOfPage, hasPart, @graph, and itemListElement containers. Schema type URLs and object-shaped job URLs are accepted.
 - LinkedIn-style split-pane cards are recognized through data-job-id and data-occludable-job-id. If a job link itself also contains a job-card class, extraction climbs to the surrounding card before reading company fields.
+- Common Lever, Greenhouse, and Ashby tracking parameters are removed before generic job URLs are compared, so board links do not create avoidable URL variants.
 - tests/fixtures/structured-jobposting.html and tests/fixtures/linkedin-split-pane.html run the real page-context script with a small fixture DOM harness. This verifies extracted company, role, URL, detail/collection mode, and nested structured data behavior.
 
 This is fixture-based reliability evidence, not live support for every LinkedIn layout or authenticated job board. Manual correction remains part of the workflow, and the real-browser acceptance phase is still required.

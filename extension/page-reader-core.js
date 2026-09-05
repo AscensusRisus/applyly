@@ -2,6 +2,7 @@
   const trackingParameters = new Set([
     "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
     "ref", "referrer", "source", "trk", "trackingid",
+    "gh_jid", "gh_src", "lever-source", "lever-origin", "ashby_jid",
   ]);
 
   function parsedUrl(value, base) {
