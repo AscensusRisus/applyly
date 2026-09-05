@@ -28,6 +28,7 @@ The current milestone delivers this capture workflow. Future scope below is a pr
 - Check history authenticates the configured token and checks the selected, edited job. Results link directly to the existing record. Exact matches do not prevent opening a draft; the user can inspect the record and the app retains duplicate protection.
 - Failed rescans clear old capture controls and results. Edits and selection changes clear results; superseded requests cannot repopulate them.
 - Disabling guidance unregisters the site and removes already-rendered overlays from every open tab matching that site.
+- Disabling guidance also cancels pending scans and discards per-tab scan cache for every matching open tab.
 - Local address configuration works without a token. Popup requests and background configuration enforce localhost/127.0.0.1 HTTP origins. Background capture handoff no longer requires a token.
 - Guide this site is retained as a secondary experimental feature, with the existing opt-in host permissions.
 - Updated installation/privacy documentation and added executable popup regression tests to npm test.
@@ -57,7 +58,7 @@ This is fixture-based reliability evidence, not live support for every LinkedIn 
 1. Real-browser acceptance: reload version 0.5.0 in Chrome/Edge, capture a single posting and a collection entry, correct fields, close/reopen a kept draft, start Applyly, save with an explicit date, and reopen the exact record. Repeat with revoked pairing and the local server stopped. Confirm existing app duplicate behavior from an actual browser handoff.
 2. Extraction reliability continuation: add more sanitized fixtures for supported ATS and job-board layouts, then test each adapter against a fixture before claiming support. Keep manual editing available.
 3. Draft inbox, only after the single-draft workflow is validated: multiple explicitly saved jobs, URL deduplication, deletion, clear unsaved versus applied states, and a bounded retention policy. This version intentionally keeps one draft, not an application database copy.
-4. Guidance hardening continuation: cancel and discard obsolete background scans, and verify route changes and virtualized lists in a real browser. Popup request invalidation and cross-tab overlay cleanup are implemented; these broader guide lifecycle checks remain future work.
+4. Guidance hardening continuation: verify route changes and virtualized lists in a real browser. Popup request invalidation, cross-tab overlay cleanup, and matching-tab scan cancellation/cache cleanup are implemented; these broader guide lifecycle checks remain future work.
 5. Main app follow-up: if collecting jobs before applying becomes a core use case, introduce an explicit prospect/inbox state with additive migration and tests. Do not silently assign an applied date to a captured job.
 
 ## Excluded from this milestone

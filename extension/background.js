@@ -68,7 +68,12 @@ async function removeGuidanceFromMatchingTabs(pattern) {
   const tabs = await chrome.tabs.query({ url: [pattern] });
   await Promise.all(tabs
     .filter(tab => Number.isInteger(tab.id))
-    .map(tab => chrome.tabs.sendMessage(tab.id, { type: "applyly-guide-remove" }).catch(() => {})));
+    .map(tab => {
+      scanCache.delete(tab.id);
+      scanControllers.get(tab.id)?.abort();
+      scanControllers.delete(tab.id);
+      return chrome.tabs.sendMessage(tab.id, { type: "applyly-guide-remove" }).catch(() => {});
+    }));
 }
 
 async function restoreGuidance() {
