@@ -101,7 +101,8 @@ test("the UI supports navigation, insights, settings, and optimistic records wit
   assert.match(page, /modal-backdrop/);
   assert.doesNotMatch(page, /className="modal-backdrop" onClick/);
   assert.match(page, /className="modal-close"/);
-  assert.match(page, /×/);
+  assert.match(page, /modal-close/);
+  assert.match(page, /viewBox="0 0 24 24"/);
   assert.match(page, /CONTACT EMAIL/);
   assert.match(page, /htmlFor="salary"/);
   assert.match(page, /form\.salary/);

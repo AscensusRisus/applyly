@@ -75,7 +75,7 @@ export default function ApplicationDetailsModal({ dateLocale, application, onClo
     <section className="details-modal" role="dialog" aria-modal="true" aria-labelledby="details-title" onClick={event => event.stopPropagation()}>
       <div className="modal-head">
         <div><p className="eyebrow">APPLICATION DETAILS</p><h2 id="details-title">{application.company}</h2><p className="sub">{application.role}</p></div>
-        <button type="button" className="modal-close" onClick={onClose} aria-label="Close" title="Close"><span aria-hidden="true">×</span></button>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close" title="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       {!editing ? <div className="details-body">
         <div className="details-status"><span className={`status-dot ${application.status.toLowerCase().replaceAll(" ", "-")}`}/>{application.status}</div>
