@@ -27,6 +27,7 @@ The current milestone delivers this capture workflow. Future scope below is a pr
 - Review captured job in Applyly retains that draft and opens the existing app form. It never records an application automatically. The draft stays until discarded because opening a tab does not confirm a successful app save.
 - Check history authenticates the configured token and checks the selected, edited job. Results link directly to the existing record. Exact matches do not prevent opening a draft; the user can inspect the record and the app retains duplicate protection.
 - Failed rescans clear old capture controls and results. Edits and selection changes clear results; superseded requests cannot repopulate them.
+- Disabling guidance unregisters the site and removes already-rendered overlays from every open tab matching that site.
 - Local address configuration works without a token. Popup requests and background configuration enforce localhost/127.0.0.1 HTTP origins. Background capture handoff no longer requires a token.
 - Guide this site is retained as a secondary experimental feature, with the existing opt-in host permissions.
 - Updated installation/privacy documentation and added executable popup regression tests to npm test.
@@ -34,7 +35,7 @@ The current milestone delivers this capture workflow. Future scope below is a pr
 ## Validation
 
 - Popup regression tests: unpaired capture without network requests; collection selection and edited handoff; kept draft restoration/discard; rejected token status; failed rescan cleanup; manual fallback; invalid URL/remote endpoint rejection; exact application deep link.
-- Existing manifest, extension contract, and page-reader tests passed.
+- Existing manifest, extension contract, and page-reader tests passed. Guidance cleanup also covers all matching open tabs when a site is disabled.
 - JavaScript syntax checks passed. Repository lint passed.
 - Production build and the full npm test suite passed, including the isolated API integration test that writes a record, restarts the server, verifies persistence, and enforces extension contracts. The new popup suite has 11 behavioral tests, including late response invalidation, offline history fallback, and token-free endpoint configuration.
 - The popup tests execute the real script with a simulated DOM and Chrome APIs. They are not an installed-extension browser test.
@@ -56,7 +57,7 @@ This is fixture-based reliability evidence, not live support for every LinkedIn 
 1. Real-browser acceptance: reload version 0.5.0 in Chrome/Edge, capture a single posting and a collection entry, correct fields, close/reopen a kept draft, start Applyly, save with an explicit date, and reopen the exact record. Repeat with revoked pairing and the local server stopped. Confirm existing app duplicate behavior from an actual browser handoff.
 2. Extraction reliability continuation: add more sanitized fixtures for supported ATS and job-board layouts, then test each adapter against a fixture before claiming support. Keep manual editing available.
 3. Draft inbox, only after the single-draft workflow is validated: multiple explicitly saved jobs, URL deduplication, deletion, clear unsaved versus applied states, and a bounded retention policy. This version intentionally keeps one draft, not an application database copy.
-4. Guidance hardening: cancel and discard obsolete background scans, remove already-rendered overlays on every matching tab when site access is disabled, and verify route changes and virtualized lists in a real browser. Popup request invalidation is implemented; these broader guide lifecycle changes remain future work.
+4. Guidance hardening continuation: cancel and discard obsolete background scans, and verify route changes and virtualized lists in a real browser. Popup request invalidation and cross-tab overlay cleanup are implemented; these broader guide lifecycle checks remain future work.
 5. Main app follow-up: if collecting jobs before applying becomes a core use case, introduce an explicit prospect/inbox state with additive migration and tests. Do not silently assign an applied date to a captured job.
 
 ## Excluded from this milestone
