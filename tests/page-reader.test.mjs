@@ -258,3 +258,23 @@ test("Lever-style collection fixture extracts posting title and company fields",
     },
   ]);
 });
+
+test("Greenhouse-style collection fixture extracts opening title and company fields", async () => {
+  const result = await runPageFixture(
+    "greenhouse-collection.html",
+    "https://northstar.example.com/careers",
+  );
+  assert.equal(result.mode, "collection");
+  assert.deepEqual(JSON.parse(JSON.stringify(result.candidates.map(({ company, role, url }) => ({ company, role, url })))), [
+    {
+      company: "Northstar Labs",
+      role: "Site Reliability Engineer",
+      url: "https://job-boards.greenhouse.io/northstar/jobs/123456?gh_jid=123456&gh_src=board",
+    },
+    {
+      company: "Northstar Labs",
+      role: "Product Security Engineer",
+      url: "https://job-boards.greenhouse.io/northstar/jobs/123457?gh_jid=123457&gh_src=board",
+    },
+  ]);
+});

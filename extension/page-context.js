@@ -124,7 +124,7 @@
     "[data-cy*='job']", "[data-qa*='job']", "[class*='job-card']", "[class*='JobCard']",
     "[class*='jobCard']", "[class*='job-listing']", "[class*='JobListing']",
     "[class*='jobListing']", "[class*='application-card']", "[class*='ApplicationCard']",
-    "[data-job-id]", "[data-occludable-job-id]",
+    "[data-job-id]", "[data-occludable-job-id]", "[data-qa*='opening']", "[class*='opening']",
   ].join(",");
   const companySelectors = [
     "[data-testid*='company']", "[data-test*='company']", "[data-cy*='company']",
@@ -139,7 +139,7 @@
     "[data-qa*='job-title']", "[itemprop='title']", "[class*='job-title']",
     "[class*='jobTitle']", "[class*='JobTitle']", "[data-job-title]",
     "[data-automation-id='jobTitle']", "[class*='job-card-list__title']",
-    "[class*='job-card-container__link']", "[class*='posting-title']",
+    "[class*='job-card-container__link']", "[class*='posting-title']", "[class*='opening-title']",
   ];
   const roleHeadingSelectors = ["h1", "h2", "h3"];
   const firstElement = (container, selectors) => selectors
@@ -217,7 +217,7 @@
 
   for (const card of document.querySelectorAll(cardSelectors)) {
     const jobAnchor = [...card.querySelectorAll("a[href]")].find(anchor => isLikelyJobUrl(anchor.href));
-    const explicitJobCard = card.matches("[data-testid*='job'],[data-test*='job'],[data-cy*='job'],[data-qa*='job'],[class*='job-card'],[class*='JobCard'],[class*='jobCard'],[class*='job-listing'],[class*='JobListing'],[class*='jobListing']");
+    const explicitJobCard = card.matches("[data-testid*='job'],[data-test*='job'],[data-cy*='job'],[data-qa*='job'],[data-qa*='opening'],[class*='job-card'],[class*='JobCard'],[class*='jobCard'],[class*='job-listing'],[class*='JobListing'],[class*='jobListing'],[class*='opening']");
     if (!jobAnchor && !explicitJobCard) continue;
     const role = roleFromCard(card, jobAnchor);
     const company = companyFromCard(card, role);
