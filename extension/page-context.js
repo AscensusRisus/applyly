@@ -86,6 +86,9 @@
     if (value["@graph"]) visit(value["@graph"]);
     if (value.itemListElement) visit(value.itemListElement);
     if (value.item) visit(value.item);
+    if (value.mainEntity) visit(value.mainEntity);
+    if (value.mainEntityOfPage) visit(value.mainEntityOfPage);
+    if (value.hasPart) visit(value.hasPart);
   };
 
   for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
@@ -96,14 +99,22 @@
     }
   }
 
-  for (const posting of jsonNodes.filter(node => asList(node["@type"]).includes("JobPosting"))) {
+  const isJobPosting = node => asList(node["@type"]).some(type => {
+    const normalized = String(type).toLocaleLowerCase("en-US");
+    return normalized === "jobposting" || normalized.endsWith("/jobposting") || normalized.endsWith("#jobposting");
+  });
+  const linkedUrl = value => typeof value === "string" ? value : value && typeof value === "object"
+    ? value.url || value["@id"] || ""
+    : "";
+
+  for (const posting of jsonNodes.filter(isJobPosting)) {
     const organization = posting.hiringOrganization && typeof posting.hiringOrganization === "object"
       ? posting.hiringOrganization
       : {};
     addCandidate({
       company: organization.name,
       role: posting.title,
-      url: posting.url || posting["@id"] || location.href,
+      url: linkedUrl(posting.url) || linkedUrl(posting["@id"]) || linkedUrl(posting.mainEntityOfPage) || location.href,
       domain: companyDomain([...asList(organization.sameAs), organization.url]),
     });
   }
@@ -113,18 +124,22 @@
     "[data-cy*='job']", "[data-qa*='job']", "[class*='job-card']", "[class*='JobCard']",
     "[class*='jobCard']", "[class*='job-listing']", "[class*='JobListing']",
     "[class*='jobListing']", "[class*='application-card']", "[class*='ApplicationCard']",
+    "[data-job-id]", "[data-occludable-job-id]",
   ].join(",");
   const companySelectors = [
     "[data-testid*='company']", "[data-test*='company']", "[data-cy*='company']",
     "[data-qa*='company']", "[itemprop='hiringOrganization']", "[class*='company-name']",
     "[class*='companyName']", "[class*='CompanyName']", "[class*='employer-name']",
     "[class*='employerName']", "[class*='organization-name']", "a[href*='/company/']",
-    "a[href*='/companies/']",
+    "a[href*='/companies/']", "[data-company-name]", "[data-automation-id='companyName']",
+    "[class*='primary-description']", "[class*='entity-lockup__subtitle']",
   ];
   const roleSelectors = [
     "[data-testid*='job-title']", "[data-test*='job-title']", "[data-cy*='job-title']",
     "[data-qa*='job-title']", "[itemprop='title']", "[class*='job-title']",
-    "[class*='jobTitle']", "[class*='JobTitle']",
+    "[class*='jobTitle']", "[class*='JobTitle']", "[data-job-title]",
+    "[data-automation-id='jobTitle']", "[class*='job-card-list__title']",
+    "[class*='job-card-container__link']",
   ];
   const roleHeadingSelectors = ["h1", "h2", "h3"];
   const firstElement = (container, selectors) => selectors
@@ -140,9 +155,10 @@
 
   const findJobCard = anchor => {
     const direct = anchor.closest(cardSelectors);
-    if (direct && direct !== document.body && direct !== document.documentElement) {
-      const directJobLinks = [...direct.querySelectorAll("a[href]")].filter(link => isLikelyJobUrl(link.href));
-      if (directJobLinks.length <= 1) return direct;
+    const directContainer = direct?.matches?.("a,button") ? direct.parentElement : direct;
+    if (directContainer && directContainer !== document.body && directContainer !== document.documentElement) {
+      const directJobLinks = [...directContainer.querySelectorAll("a[href]")].filter(link => isLikelyJobUrl(link.href));
+      if (directJobLinks.length <= 1) return directContainer;
     }
 
     let current = anchor.parentElement;
@@ -157,7 +173,11 @@
 
   const companyFromCard = (card, role) => {
     const companyElement = firstElement(card, companySelectors);
-    const selected = cleanCompany(companyElement?.textContent || companyElement?.getAttribute?.("aria-label"));
+    const selected = cleanCompany(
+      companyElement?.getAttribute?.("data-company-name")
+      || companyElement?.textContent
+      || companyElement?.getAttribute?.("aria-label"),
+    );
     if (selected) return selected;
 
     const labelled = [...card.querySelectorAll("[aria-label]")].map(element => clean(element.getAttribute("aria-label")))
