@@ -64,6 +64,13 @@ async function unregisterPattern(pattern) {
   if (existing.length) await chrome.scripting.unregisterContentScripts({ ids: [id] });
 }
 
+async function removeGuidanceFromMatchingTabs(pattern) {
+  const tabs = await chrome.tabs.query({ url: [pattern] });
+  await Promise.all(tabs
+    .filter(tab => Number.isInteger(tab.id))
+    .map(tab => chrome.tabs.sendMessage(tab.id, { type: "applyly-guide-remove" }).catch(() => {})));
+}
+
 async function restoreGuidance() {
   const patterns = await storedGuidedOrigins();
   const permitted = [];
@@ -99,11 +106,7 @@ async function disableGuidance(tabId) {
   scanCache.delete(tabId);
   scanControllers.get(tabId)?.abort();
   scanControllers.delete(tabId);
-  try {
-    await chrome.tabs.sendMessage(tabId, { type: "applyly-guide-remove" });
-  } catch {
-    // The content script may not be active on the current document.
-  }
+  await removeGuidanceFromMatchingTabs(pattern);
   return { pattern };
 }
 

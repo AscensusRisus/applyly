@@ -53,6 +53,8 @@ test("persistent guidance is opt-in per site and survives refresh without static
   assert.match(worker, /chrome\.permissions\.contains/);
   assert.match(worker, /chrome\.permissions\.onRemoved/);
   assert.match(worker, /permissions\.origins\.map\(unregisterPattern\)/);
+  assert.match(worker, /chrome\.tabs\.query\(\{ url: \[pattern\] \}\)/);
+  assert.match(worker, /applyly-guide-remove/);
   assert.match(worker, /applylyGuidedOrigins/);
   assert.match(worker, /chrome\.runtime\.onStartup/);
   assert.match(worker, /chrome\.runtime\.onInstalled/);
