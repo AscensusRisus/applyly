@@ -218,3 +218,23 @@ test("LinkedIn split-pane fixture extracts data-job-id cards and their selected 
     { company: "Northstar Labs", role: "Frontend Engineer", url: "https://www.linkedin.com/jobs/view/222/?trk=feed" },
   ]);
 });
+
+test("Workday-style collection fixture extracts automation fields from separate ATS cards", async () => {
+  const result = await runPageFixture(
+    "workday-collection.html",
+    "https://northstar.wd5.myworkdayjobs.com/en-US/northstar",
+  );
+  assert.equal(result.mode, "collection");
+  assert.deepEqual(JSON.parse(JSON.stringify(result.candidates.map(({ company, role, url }) => ({ company, role, url })))), [
+    {
+      company: "Northstar Labs",
+      role: "Backend Engineer",
+      url: "https://northstar.wd5.myworkdayjobs.com/en-US/northstar/job/Backend-Engineer_R-1001",
+    },
+    {
+      company: "Northstar Labs",
+      role: "Product Designer",
+      url: "https://northstar.wd5.myworkdayjobs.com/en-US/northstar/job/Product-Designer_R-1002",
+    },
+  ]);
+});
