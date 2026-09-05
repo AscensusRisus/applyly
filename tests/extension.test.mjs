@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import vm from "node:vm";
 import test from "node:test";
 
 const root = new URL("../", import.meta.url);
@@ -85,6 +86,58 @@ test("persistent guidance is opt-in per site and survives refresh without static
   assert.match(reader, /lever/);
   assert.match(reader, /ashbyhq/);
   assert.match(reader, /greenhouse/);
+});
+
+test("disabling guidance cancels and clears every matching tab scan", async () => {
+  const worker = await read("extension/background.js");
+  let guidedOrigins = [];
+  const sentTabIds = [];
+  const event = () => ({ addListener() {} });
+  const sandbox = vm.createContext({
+    URL,
+    AbortController,
+    setTimeout,
+    clearTimeout,
+    chrome: {
+      runtime: { id: "extension-id", onMessage: event(), onInstalled: event(), onStartup: event() },
+      storage: {
+        local: {
+          get: async key => key === "applylyGuidedOrigins" ? { applylyGuidedOrigins: guidedOrigins } : {},
+          set: async value => { if (Array.isArray(value.applylyGuidedOrigins)) guidedOrigins = value.applylyGuidedOrigins; },
+        },
+        onChanged: event(),
+      },
+      permissions: { contains: async () => true, onRemoved: event() },
+      scripting: {
+        getRegisteredContentScripts: async () => [],
+        registerContentScripts: async () => {},
+        updateContentScripts: async () => {},
+        unregisterContentScripts: async () => {},
+        executeScript: async () => [],
+      },
+      tabs: {
+        get: async () => ({ id: 1, url: "https://jobs.example/search" }),
+        query: async options => options?.url ? [{ id: 1 }, { id: 2 }] : [],
+        sendMessage: async tabId => { sentTabIds.push(tabId); },
+        onRemoved: event(),
+      },
+    },
+  });
+  vm.runInContext(worker + "\nglobalThis.__applylyTest = { handleMessage, scanCache, scanControllers };", sandbox);
+  await new Promise(resolve => setImmediate(resolve));
+  const api = sandbox.__applylyTest;
+  const pattern = "https://jobs.example/*";
+  guidedOrigins = [pattern];
+  const pending = new AbortController();
+  api.scanCache.set(2, { fingerprint: "old", result: {}, createdAt: Date.now() });
+  api.scanControllers.set(2, pending);
+
+  await api.handleMessage({ type: "applyly-guide-disable", tabId: 1 }, {});
+
+  assert.equal(api.scanCache.has(2), false);
+  assert.equal(pending.signal.aborted, true);
+  assert.deepEqual(sentTabIds.sort((left, right) => left - right), [1, 2]);
+  assert.equal(guidedOrigins.length, 0);
 });
 
 test("extension matching stays local, paired, review-first, and read-only", async () => {
