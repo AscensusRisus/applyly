@@ -87,7 +87,7 @@ test("application API uses one storage layer for reads, writes, and status chang
 });
 
 test("the UI supports navigation, insights, settings, and optimistic records with the persisted record and rolls back failures", async () => {
-  const [page, insights] = await Promise.all([read("app/page.tsx"), read("app/components/insights-panel.tsx")]);
+  const [page, insights, activity] = await Promise.all([read("app/page.tsx"), read("app/components/insights-panel.tsx"), read("app/components/application-activity-panel.tsx")]);
   assert.match(page, /setApps\(current => \[optimistic, \.\.\.current\]\)/);
   assert.match(page, /app\.id === optimistic\.id \? data\.application : app/);
   assert.match(page, /current => current\.filter\(app => app\.id !== optimistic\.id\)/);
@@ -117,6 +117,9 @@ test("the UI supports navigation, insights, settings, and optimistic records wit
   assert.match(page, /Welcome back/);
   assert.match(page, /hydrated/);
   assert.match(page, /todayIso/);
+  assert.match(page, /ApplicationActivityPanel/);
+  assert.match(activity, /Applications by applied date/);
+  assert.match(activity, /activity\.busiest\.count/);
   assert.match(page, /getFullYear/);
   assert.match(page, /defaultSource/);
   assert.match(page, /defaultDateMode/);
